@@ -1,0 +1,81 @@
+services:
+  # PostgreSQL 16 Database with pgvector extension
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: smart_finance_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_finance}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-smart_finance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for ARQ Task Queue
+  redis:
+    image: redis:7-alpine
+    container_name: smart_finance_redis
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart_finance_backend
+    restart: always
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/smart_finance}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ARQ Worker for Async Speech-to-Text (Whisper) & Receipt OCR
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart_finance_worker
+    restart: always
+    command: arq src.infrastructure.adapters.tasks.WorkerSettings
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/smart_finance}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
