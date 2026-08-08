@@ -1,4 +1,4 @@
-import { Save, FileUp, Key } from 'lucide-react';
+import { FileUp, Key } from 'lucide-react';
 import './Pages.css';
 
 export default function Settings() {

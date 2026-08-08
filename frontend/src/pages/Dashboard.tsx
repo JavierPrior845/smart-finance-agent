@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, X } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
   BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -185,7 +185,7 @@ export default function Dashboard() {
                   stroke="none"
                   onClick={handlePieClick}
                   style={{ cursor: 'pointer' }}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   labelLine={{ stroke: 'rgba(255,255,255,0.2)' }}
                 >
                   {distributionData.map((entry, index) => (

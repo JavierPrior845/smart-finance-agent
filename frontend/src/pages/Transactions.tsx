@@ -1,4 +1,4 @@
-import { Plus, Filter } from 'lucide-react';
+
 import './Pages.css';
 
 export default function Transactions() {
