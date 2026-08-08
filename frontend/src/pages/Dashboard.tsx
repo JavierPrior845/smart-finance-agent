@@ -13,7 +13,7 @@ export default function Dashboard() {
   
   // States for dynamic data
   const [loading, setLoading] = useState(true);
-  const [kpis, setKpis] = useState({ net_worth: 0, monthly_income: 0, monthly_expenses: 0, savings_rate: 0 });
+  const [kpis, setKpis] = useState({ net_worth: 0, monthly_income: 0, monthly_expenses: 0, savings_rate: 0, income_trend: null as number | null, expenses_trend: null as number | null, net_worth_trend: null as number | null, target_savings_rate: 50.0 });
   const [distributionData, setDistributionData] = useState<any[]>([]);
   const [cashFlowData, setCashFlowData] = useState<any[]>([]);
   const [pacingData, setPacingData] = useState<any[]>([]);
@@ -86,23 +86,29 @@ export default function Dashboard() {
             <div className="glass-panel kpi-card">
               <span className="kpi-title">Ingresos Mensuales</span>
               <span className="kpi-value text-success">€{kpis.monthly_income.toFixed(2)}</span>
-              <div className="kpi-trend positive">
-                <ArrowUpRight size={16} />
-              </div>
+              {kpis.income_trend !== null && (
+                <div className={`kpi-trend ${kpis.income_trend >= 0 ? 'positive' : 'negative'}`}>
+                  {kpis.income_trend >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                  <span>{Math.abs(kpis.income_trend).toFixed(1)}% vs anterior</span>
+                </div>
+              )}
             </div>
             <div className="glass-panel kpi-card">
               <span className="kpi-title">Gastos Mensuales</span>
               <span className="kpi-value text-danger">€{kpis.monthly_expenses.toFixed(2)}</span>
-              <div className="kpi-trend negative">
-                <ArrowDownRight size={16} />
-              </div>
+              {kpis.expenses_trend !== null && (
+                <div className={`kpi-trend ${kpis.expenses_trend <= 0 ? 'positive' : 'negative'}`}>
+                  {kpis.expenses_trend <= 0 ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
+                  <span>{Math.abs(kpis.expenses_trend).toFixed(1)}% vs anterior</span>
+                </div>
+              )}
             </div>
             <div className="glass-panel kpi-card">
               <span className="kpi-title">Tasa de Ahorro</span>
               <span className="kpi-value">{kpis.savings_rate.toFixed(1)}%</span>
               <div className="kpi-trend">
                 <Activity size={16} />
-                <span>Objetivo: 50%</span>
+                <span>Objetivo: {kpis.target_savings_rate}%</span>
               </div>
             </div>
           </div>

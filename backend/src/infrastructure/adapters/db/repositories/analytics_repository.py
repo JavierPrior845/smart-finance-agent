@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.adapters.db.models.transaction import TransactionORM
 from src.infrastructure.adapters.db.models.account import AccountORM
 from src.infrastructure.adapters.db.models.category import CategoryORM
+from src.infrastructure.adapters.db.models.setting import AppSettingORM
 
 class AnalyticsRepository:
     def __init__(self, session: AsyncSession):
@@ -46,11 +47,54 @@ class AnalyticsRepository:
         if monthly_income > 0:
             savings_rate = ((monthly_income - monthly_expenses) / monthly_income) * 100
         
+        # Calculate previous month limits
+        prev_month = now.month - 1 if now.month > 1 else 12
+        prev_year = now.year if now.month > 1 else now.year - 1
+        start_of_prev_month = datetime(prev_year, prev_month, 1, tzinfo=timezone.utc)
+        
+        # 5. Previous Monthly Income
+        stmt_prev_inc = select(func.sum(TransactionORM.amount)).where(
+            and_(
+                TransactionORM.type == "INCOME",
+                TransactionORM.transaction_date >= start_of_prev_month,
+                TransactionORM.transaction_date < start_of_month
+            )
+        )
+        prev_income = (await self.session.execute(stmt_prev_inc)).scalar_one_or_none() or 0.0
+        
+        # 6. Previous Monthly Expenses
+        stmt_prev_exp = select(func.sum(TransactionORM.amount)).where(
+            and_(
+                TransactionORM.type == "EXPENSE",
+                TransactionORM.transaction_date >= start_of_prev_month,
+                TransactionORM.transaction_date < start_of_month
+            )
+        )
+        prev_expenses = abs((await self.session.execute(stmt_prev_exp)).scalar_one_or_none() or 0.0)
+
+        # 7. Calculate Trends
+        income_trend = None
+        if prev_income > 0:
+            income_trend = ((float(monthly_income) - float(prev_income)) / float(prev_income)) * 100
+            
+        expenses_trend = None
+        if prev_expenses > 0:
+            expenses_trend = ((float(monthly_expenses) - float(prev_expenses)) / float(prev_expenses)) * 100
+
+        # 8. Target Savings Rate
+        stmt_target = select(AppSettingORM).where(AppSettingORM.key == "target_savings_rate")
+        target_setting = (await self.session.execute(stmt_target)).scalar_one_or_none()
+        target_savings_rate = float(target_setting.value) if target_setting else 50.0
+        
         return {
             "net_worth": float(net_worth),
             "monthly_income": float(monthly_income),
             "monthly_expenses": float(monthly_expenses),
-            "savings_rate": float(savings_rate)
+            "savings_rate": float(savings_rate),
+            "income_trend": income_trend,
+            "expenses_trend": expenses_trend,
+            "net_worth_trend": None,
+            "target_savings_rate": target_savings_rate
         }
 
     async def get_expense_distribution(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:

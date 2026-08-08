@@ -6,6 +6,10 @@ class KPIsResponse(BaseModel):
     monthly_income: float
     monthly_expenses: float
     savings_rate: float
+    income_trend: Optional[float] = None
+    expenses_trend: Optional[float] = None
+    net_worth_trend: Optional[float] = None
+    target_savings_rate: float = 50.0
 
 class CategoryDistribution(BaseModel):
     name: str

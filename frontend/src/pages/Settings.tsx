@@ -1,7 +1,42 @@
-import { FileUp, Key } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileUp, Key, Target, Loader2, Save } from 'lucide-react';
+import api from '../services/api';
 import './Pages.css';
 
 export default function Settings() {
+  const [targetSavingsRate, setTargetSavingsRate] = useState<string>("50.0");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/settings/target_savings_rate');
+        setTargetSavingsRate(res.data.value);
+      } catch (err) {
+        console.error("No se pudo cargar la tasa de ahorro objetivo", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSaveSavingsRate = async () => {
+    setSaving(true);
+    try {
+      await api.put('/settings/target_savings_rate', {
+        value: targetSavingsRate,
+        description: "Tasa de ahorro objetivo (%)"
+      });
+      // Podríamos mostrar un toast de éxito aquí
+    } catch (err) {
+      console.error("Error al guardar la tasa de ahorro", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="view-container">
       <div className="view-header">
@@ -27,6 +62,39 @@ export default function Settings() {
             </div>
             <button className="glass-button primary" style={{ alignSelf: 'flex-start' }}>Guardar Tokens</button>
           </div>
+        </div>
+
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <h3 style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Target size={20} /> Objetivos Financieros
+          </h3>
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+              <Loader2 className="spin" size={24} />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label>Tasa de Ahorro Objetivo (%)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input 
+                    type="number" 
+                    value={targetSavingsRate} 
+                    onChange={(e) => setTargetSavingsRate(e.target.value)} 
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    className="glass-button primary" 
+                    onClick={handleSaveSavingsRate}
+                    disabled={saving}
+                  >
+                    {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                  </button>
+                </div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Este valor se usará para calcular el cumplimiento en tu Dashboard.</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="glass-panel" style={{ padding: '24px' }}>

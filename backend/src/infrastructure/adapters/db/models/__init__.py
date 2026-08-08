@@ -5,6 +5,7 @@ from .transaction import TransactionORM
 from .budget import BudgetORM
 from .merchant_rule import MerchantRuleORM
 from .investment import InvestmentAssetORM, InvestmentMovementORM
+from .setting import AppSettingORM
 
 __all__ = [
     "Base",
@@ -14,5 +15,6 @@ __all__ = [
     "BudgetORM",
     "MerchantRuleORM",
     "InvestmentAssetORM",
-    "InvestmentMovementORM"
+    "InvestmentMovementORM",
+    "AppSettingORM"
 ]
