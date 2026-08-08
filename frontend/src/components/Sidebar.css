@@ -74,3 +74,31 @@
   padding-top: 16px;
   border-top: 1px solid var(--border-glass);
 }
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 80px;
+    padding: 24px 8px;
+    margin: 16px 8px;
+    align-items: center;
+  }
+  
+  .sidebar-header h2 {
+    display: none;
+  }
+  
+  .sidebar-header {
+    justify-content: center;
+    margin-bottom: 32px;
+    padding: 0;
+  }
+  
+  .nav-item span {
+    display: none;
+  }
+  
+  .nav-item {
+    justify-content: center;
+    padding: 12px;
+  }
+}

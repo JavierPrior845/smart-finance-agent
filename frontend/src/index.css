@@ -110,6 +110,13 @@ body {
   gap: 24px;
 }
 
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+    gap: 16px;
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

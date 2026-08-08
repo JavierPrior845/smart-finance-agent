@@ -21,11 +21,21 @@
 
 .budget-info h4 {
   font-weight: 500;
+  font-size: 1rem;
 }
 
 .budget-info span {
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .budget-info h4 {
+    font-size: 0.9rem;
+  }
+  .budget-info span {
+    font-size: 0.8rem;
+  }
 }
 
 .progress-bg {
@@ -54,6 +64,12 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .accounts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .account-list {
@@ -99,6 +115,12 @@
 }
 
 /* Tables */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -112,6 +134,22 @@
   padding: 16px 12px;
   text-align: left;
   border-bottom: 1px solid var(--border-glass);
+}
+
+@media (max-width: 768px) {
+  .data-table th, .data-table td {
+    padding: 10px 6px;
+    font-size: 0.85rem;
+  }
+  
+  .data-table th {
+    font-size: 0.75rem;
+  }
+  
+  .cat-badge {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+  }
 }
 
 .data-table th {

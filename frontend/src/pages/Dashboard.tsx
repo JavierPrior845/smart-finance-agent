@@ -69,6 +69,8 @@ export default function Dashboard() {
               paddingAngle={5}
               dataKey="value"
               stroke="none"
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              labelLine={{ stroke: 'rgba(255,255,255,0.2)' }}
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />

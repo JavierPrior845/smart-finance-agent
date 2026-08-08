@@ -29,28 +29,30 @@ export default function Transactions() {
       </div>
 
       <div className="glass-panel" style={{ padding: '24px' }}>
-        <table className="data-table full-width">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Descripción</th>
-              <th>Categoría</th>
-              <th style={{ textAlign: 'right' }}>Importe</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map(txn => (
-              <tr key={txn.id}>
-                <td style={{ color: 'var(--text-secondary)' }}>{txn.date}</td>
-                <td><strong>{txn.desc}</strong></td>
-                <td><span className="cat-badge">{txn.cat}</span></td>
-                <td style={{ textAlign: 'right' }} className={txn.amount > 0 ? 'text-success' : 'text-primary'}>
-                  {txn.amount > 0 ? '+' : ''}€{Math.abs(txn.amount).toFixed(2)}
-                </td>
+        <div className="table-responsive">
+          <table className="data-table full-width">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Categoría</th>
+                <th style={{ textAlign: 'right' }}>Importe</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {transactions.map(txn => (
+                <tr key={txn.id}>
+                  <td style={{ color: 'var(--text-secondary)' }}>{txn.date}</td>
+                  <td><strong>{txn.desc}</strong></td>
+                  <td><span className="cat-badge">{txn.cat}</span></td>
+                  <td style={{ textAlign: 'right' }} className={txn.amount > 0 ? 'text-success' : 'text-primary'}>
+                    {txn.amount > 0 ? '+' : ''}€{Math.abs(txn.amount).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         
         <div className="pagination">
           <span>Mostrando 1-4 de 45</span>

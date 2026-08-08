@@ -45,32 +45,34 @@ export default function Accounts() {
 
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ marginBottom: '24px' }}>Posiciones Abiertas</h3>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Activo</th>
-                <th>Cant.</th>
-                <th>P&L</th>
-              </tr>
-            </thead>
-            <tbody>
-              {investments.map(inv => {
-                const invested = inv.qty * inv.avgPrice;
-                const current = inv.qty * inv.currentPrice;
-                const pnl = current - invested;
-                const isPositive = pnl >= 0;
-                return (
-                  <tr key={inv.id}>
-                    <td><strong>{inv.ticker}</strong></td>
-                    <td>{inv.qty}</td>
-                    <td className={isPositive ? 'text-success' : 'text-danger'}>
-                      {isPositive ? '+' : ''}€{pnl.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Activo</th>
+                  <th>Cant.</th>
+                  <th>P&L</th>
+                </tr>
+              </thead>
+              <tbody>
+                {investments.map(inv => {
+                  const invested = inv.qty * inv.avgPrice;
+                  const current = inv.qty * inv.currentPrice;
+                  const pnl = current - invested;
+                  const isPositive = pnl >= 0;
+                  return (
+                    <tr key={inv.id}>
+                      <td><strong>{inv.ticker}</strong></td>
+                      <td>{inv.qty}</td>
+                      <td className={isPositive ? 'text-success' : 'text-danger'}>
+                        {isPositive ? '+' : ''}€{pnl.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
