@@ -12,3 +12,8 @@ class BudgetResponse(BudgetCreate):
 
     class Config:
         from_attributes = True
+
+class BudgetProgressResponse(BudgetResponse):
+    spent: float
+    category_name: str
+    category_color: str | None = None

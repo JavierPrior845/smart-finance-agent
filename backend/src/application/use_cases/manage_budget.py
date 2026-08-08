@@ -32,3 +32,10 @@ class ManageBudgetUseCase:
 
     async def get_budgets_for_month(self, month: int, year: int) -> List[Budget]:
         return await self.budget_repo.get_all_for_period(month, year)
+
+    async def get_budget_progress_for_month(self, month: int, year: int) -> List[dict]:
+        # Note: We need the concrete SQLAlchemyBudgetRepository here because we added a custom method.
+        # In a strict hexagonal architecture, we'd add this method to the BudgetRepository protocol.
+        if hasattr(self.budget_repo, 'get_progress_for_month'):
+            return await self.budget_repo.get_progress_for_month(month, year)
+        raise NotImplementedError("The repository does not support get_progress_for_month")
