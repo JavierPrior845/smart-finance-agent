@@ -17,10 +17,6 @@ export default function Transactions() {
           <p className="page-subtitle">Registro detallado de movimientos</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="glass-button">
-            <Filter size={18} />
-            Filtrar
-          </button>
           <div className="page-controls">
             <button className="glass-button primary">+ Añadir Transacción</button>
           </div>
@@ -50,6 +46,10 @@ export default function Transactions() {
               <option value="csv">Import (CSV)</option>
               <option value="manual">Manual</option>
             </select>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', alignSelf: 'stretch', paddingBottom: '2px' }}>
+            <button className="glass-button primary" style={{ height: '38px', marginTop: 'auto' }}>Aplicar</button>
+            <button className="glass-button" style={{ height: '38px', marginTop: 'auto' }}>Limpiar</button>
           </div>
         </div>
       </div>

@@ -48,12 +48,12 @@ export default function ValidationInbox() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                   <div>
                     <h3 style={{ marginBottom: '8px', fontSize: '1.2rem' }}>{txn.desc}</h3>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.9rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                       <span>{txn.date}</span>
                       <span>•</span>
                       <span className="cat-badge">{txn.cat}</span>
                       <span>•</span>
-                      <span>Confianza IA: {(txn.confidence * 100).toFixed(0)}%</span>
+                      <span>Confianza: {(txn.confidence * 100).toFixed(0)}%</span>
                       <span>•</span>
                       <span>Fuente: {txn.source}</span>
                     </div>
@@ -69,14 +69,14 @@ export default function ValidationInbox() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                  <button className="glass-button primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <button className="glass-button primary" style={{ flex: '1 1 120px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
                     <Check size={18} /> Aprobar
                   </button>
-                  <button className="glass-button" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                    <Split size={18} /> Dividir Gasto
+                  <button className="glass-button" style={{ flex: '1 1 120px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                    <Split size={18} /> Dividir
                   </button>
-                  <button className="glass-button" style={{ color: 'var(--color-danger)', border: '1px solid rgba(255,71,87,0.3)' }}>
+                  <button className="glass-button" style={{ flex: '1 1 120px', color: 'var(--color-danger)', border: '1px solid rgba(255,71,87,0.3)' }}>
                     <X size={18} /> Descartar
                   </button>
                 </div>
