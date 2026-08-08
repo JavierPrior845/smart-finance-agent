@@ -115,40 +115,7 @@ Unlike naïve LLM-wrapper applications, all accounting calculations, budget trac
    docker-compose exec backend alembic upgrade head
    ```
 
----
 
-## 💻 Desarrollo Local (Backend)
-
-Si deseas trabajar en el código de forma local sin usar el contenedor de Docker para el backend, puedes hacerlo siguiendo estos pasos:
-
-1. **Asegúrate de que la base de datos esté corriendo:**
-   ```bash
-   docker-compose up -d db
-   ```
-
-2. **Entorno Virtual y Dependencias:**
-   ```bash
-   cd backend
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-3. **Ejecutar el Servidor FastAPI (con Hot-Reload):**
-   ```bash
-   export DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/smart_finance"
-   uvicorn src.main:app --reload
-   ```
-   La API estará disponible en `http://localhost:8000` y la documentación interactiva (Swagger) en `http://localhost:8000/docs`.
-
-4. **Ejecutar los Tests:**
-   La suite de pruebas (Unitarias y de Integración) está construida con `pytest`. Para correrla:
-   ```bash
-   export PYTHONPATH=. 
-   pytest tests/ -v
-   ```
-
----
 
 ## 🛡️ License
 
