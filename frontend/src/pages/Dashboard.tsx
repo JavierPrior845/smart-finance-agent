@@ -30,23 +30,26 @@ export default function Dashboard() {
 
   const [showModal, setShowModal] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     amount: '',
     description: '',
     type: 'EXPENSE',
-    category_id: ''
+    category_id: '',
+    account_id: ''
   });
   const [savingTx, setSavingTx] = useState(false);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [kpiRes, distRes, flowRes, pacingRes, catRes] = await Promise.all([
+      const [kpiRes, distRes, flowRes, pacingRes, catRes, accRes] = await Promise.all([
         api.get('/analytics/kpis'),
         api.get('/analytics/distribution'),
         api.get('/analytics/cashflow'),
         api.get('/analytics/pacing'),
-        api.get('/categories')
+        api.get('/categories'),
+        api.get('/accounts')
       ]);
       
       setKpis(kpiRes.data);
@@ -54,6 +57,7 @@ export default function Dashboard() {
       setCashFlowData(flowRes.data.data);
       setPacingData(pacingRes.data.data);
       setCategories(catRes.data);
+      setAccounts(accRes.data);
     } catch (error) {
       console.error("Error fetching dashboard data", error);
     } finally {
@@ -76,11 +80,12 @@ export default function Dashboard() {
         amount: parseFloat(formData.amount),
         description: formData.description,
         category_id: formData.category_id || null,
+        account_id: formData.account_id || null,
         transaction_date: new Date().toISOString(),
         source: 'manual'
       });
       setShowModal(false);
-      setFormData({ amount: '', description: '', type: 'EXPENSE', category_id: '' });
+      setFormData({ amount: '', description: '', type: 'EXPENSE', category_id: '', account_id: '' });
       await fetchData(); // Reload dashboard data
     } catch (error) {
       console.error("Error creating transaction", error);
@@ -325,6 +330,20 @@ export default function Dashboard() {
                   <option value="">(Sin categoría - irá a Otros)</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label>Cuenta (Opcional)</label>
+                <select 
+                  value={formData.account_id} 
+                  onChange={e => setFormData({...formData, account_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">(Cuenta principal por defecto)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} {acc.is_main ? '(Principal)' : ''}</option>
                   ))}
                 </select>
               </div>
