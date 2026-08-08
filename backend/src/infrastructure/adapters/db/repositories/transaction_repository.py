@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.ports.transaction_repository import TransactionRepository
@@ -67,6 +67,41 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         stmt = select(TransactionORM).order_by(TransactionORM.transaction_date.desc()).limit(limit)
         result = await self.session.execute(stmt)
         return [self._to_domain(orm) for orm in result.scalars().all()]
+
+    async def get_all_paginated(
+        self, 
+        limit: int = 20, 
+        offset: int = 0, 
+        search: str | None = None,
+        category_id: UUID | None = None,
+        source: str | None = None
+    ) -> tuple[List[Transaction], int]:
+        
+        conditions = []
+        if search:
+            conditions.append(TransactionORM.description.ilike(f"%{search}%"))
+        if category_id:
+            conditions.append(TransactionORM.category_id == category_id)
+        if source:
+            conditions.append(TransactionORM.source == source)
+            
+        base_stmt = select(TransactionORM)
+        count_stmt = select(func.count(TransactionORM.id))
+        
+        if conditions:
+            base_stmt = base_stmt.where(*conditions)
+            count_stmt = count_stmt.where(*conditions)
+            
+        # Get total count
+        count_result = await self.session.execute(count_stmt)
+        total = count_result.scalar_one()
+        
+        # Get items
+        stmt = base_stmt.order_by(TransactionORM.transaction_date.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        items = [self._to_domain(orm) for orm in result.scalars().all()]
+        
+        return items, total
 
     async def save(self, transaction: Transaction) -> Transaction:
         orm = self._to_orm(transaction)

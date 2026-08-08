@@ -18,6 +18,17 @@ class TransactionRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_all_paginated(
+        self, 
+        limit: int = 20, 
+        offset: int = 0, 
+        search: str | None = None,
+        category_id: UUID | None = None,
+        source: str | None = None
+    ) -> tuple[List[Transaction], int]:
+        pass
+
+    @abstractmethod
     async def save(self, transaction: Transaction) -> Transaction:
         pass
 

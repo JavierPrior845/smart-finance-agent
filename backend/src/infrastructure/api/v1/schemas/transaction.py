@@ -23,6 +23,10 @@ class TransactionUpdate(BaseModel):
 
 class TransactionResponse(TransactionCreate):
     id: UUID
+
+class PaginatedTransactionsResponse(BaseModel):
+    items: List[TransactionResponse]
+    total: int
     status: str
     is_recurring: bool
     is_anomalous: bool
