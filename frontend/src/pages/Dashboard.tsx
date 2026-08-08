@@ -1,42 +1,24 @@
-import { useState } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowUpRight, ArrowDownRight, Activity, X, Loader2 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
   BarChart, Bar, LineChart, Line, AreaChart, Area, 
   XAxis, YAxis, CartesianGrid, Legend 
 } from 'recharts';
+import api from '../services/api';
 import './Pages.css';
 
 export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-
-  // MOCK DATA
-  const distributionData = [
-    { name: 'Vivienda', value: 850, color: '#8a2be2' },
-    { name: 'Alimentación', value: 420, color: '#00f5d4' },
-    { name: 'Ocio', value: 200, color: '#ff007f' },
-    { name: 'Transporte', value: 150, color: '#ffbe0b' },
-  ];
-
-  const cashFlowData = [
-    { month: 'May', ingresos: 3000, gastos: 2100 },
-    { month: 'Jun', ingresos: 3000, gastos: 1900 },
-    { month: 'Jul', ingresos: 3200, gastos: 3500 }, // Mes anómalo (ej. Vacaciones)
-    { month: 'Ago', ingresos: 3000, gastos: 1800 },
-    { month: 'Sep', ingresos: 3000, gastos: 1750 },
-    { month: 'Oct', ingresos: 3200, gastos: 1620 },
-  ];
-
-  const pacingData = [
-    { day: 1, mesAnterior: 100, mesActual: 80 },
-    { day: 5, mesAnterior: 400, mesActual: 300 },
-    { day: 10, mesAnterior: 900, mesActual: 600 },
-    { day: 15, mesAnterior: 1200, mesActual: 900 },
-    { day: 20, mesAnterior: 1500, mesActual: null }, // Proyección cortada hoy
-    { day: 25, mesAnterior: 1700, mesActual: null },
-    { day: 31, mesAnterior: 2000, mesActual: null },
-  ];
-
+  
+  // States for dynamic data
+  const [loading, setLoading] = useState(true);
+  const [kpis, setKpis] = useState({ net_worth: 0, monthly_income: 0, monthly_expenses: 0, savings_rate: 0 });
+  const [distributionData, setDistributionData] = useState<any[]>([]);
+  const [cashFlowData, setCashFlowData] = useState<any[]>([]);
+  const [pacingData, setPacingData] = useState<any[]>([]);
+  
+  // Note: Net worth historical is mocked for now until Subtask 2.5 is completed
   const netWorthData = [
     { month: 'May', liquidez: 4000, inversiones: 6000 },
     { month: 'Jun', liquidez: 4200, inversiones: 6300 },
@@ -45,6 +27,31 @@ export default function Dashboard() {
     { month: 'Sep', liquidez: 5100, inversiones: 7000 },
     { month: 'Oct', liquidez: 5350, inversiones: 7100 },
   ];
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [kpiRes, distRes, flowRes, pacingRes] = await Promise.all([
+          api.get('/analytics/kpis'),
+          api.get('/analytics/distribution'),
+          api.get('/analytics/cashflow'),
+          api.get('/analytics/pacing')
+        ]);
+        
+        setKpis(kpiRes.data);
+        setDistributionData(distRes.data.data);
+        setCashFlowData(flowRes.data.data);
+        setPacingData(pacingRes.data.data);
+      } catch (error) {
+        console.error("Error fetching analytics data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
   const handlePieClick = (data: any) => {
     setSelectedCategory(prev => prev === data.name ? null : data.name);
@@ -62,40 +69,43 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="kpi-grid">
-        <div className="glass-panel kpi-card">
-          <span className="kpi-title">Patrimonio Total</span>
-          <span className="kpi-value">€12,450.00</span>
-          <div className="kpi-trend positive">
-            <ArrowUpRight size={16} />
-            <span>+2.4% este mes</span>
-          </div>
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+          <Loader2 size={48} className="spin" style={{ color: 'var(--color-primary)' }} />
         </div>
-        <div className="glass-panel kpi-card">
-          <span className="kpi-title">Ingresos Mensuales</span>
-          <span className="kpi-value">€3,200.00</span>
-          <div className="kpi-trend positive">
-            <ArrowUpRight size={16} />
-            <span>+0.0% vs pasado</span>
+      ) : (
+        <>
+          <div className="kpi-grid">
+            <div className="glass-panel kpi-card">
+              <span className="kpi-title">Patrimonio Total</span>
+              <span className="kpi-value">€{kpis.net_worth.toFixed(2)}</span>
+              <div className="kpi-trend">
+                <span>Liquidez (excl. inversiones)</span>
+              </div>
+            </div>
+            <div className="glass-panel kpi-card">
+              <span className="kpi-title">Ingresos Mensuales</span>
+              <span className="kpi-value text-success">€{kpis.monthly_income.toFixed(2)}</span>
+              <div className="kpi-trend positive">
+                <ArrowUpRight size={16} />
+              </div>
+            </div>
+            <div className="glass-panel kpi-card">
+              <span className="kpi-title">Gastos Mensuales</span>
+              <span className="kpi-value text-danger">€{kpis.monthly_expenses.toFixed(2)}</span>
+              <div className="kpi-trend negative">
+                <ArrowDownRight size={16} />
+              </div>
+            </div>
+            <div className="glass-panel kpi-card">
+              <span className="kpi-title">Tasa de Ahorro</span>
+              <span className="kpi-value">{kpis.savings_rate.toFixed(1)}%</span>
+              <div className="kpi-trend">
+                <Activity size={16} />
+                <span>Objetivo: 50%</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="glass-panel kpi-card">
-          <span className="kpi-title">Gastos Mensuales</span>
-          <span className="kpi-value">€1,620.00</span>
-          <div className="kpi-trend negative">
-            <ArrowDownRight size={16} />
-            <span>+12.4% vs pasado</span>
-          </div>
-        </div>
-        <div className="glass-panel kpi-card">
-          <span className="kpi-title">Tasa de Ahorro</span>
-          <span className="kpi-value">49.3%</span>
-          <div className="kpi-trend">
-            <Activity size={16} />
-            <span>Objetivo: 50%</span>
-          </div>
-        </div>
-      </div>
 
       <div className="charts-grid">
         {/* COLUMNA IZQUIERDA */}
@@ -205,8 +215,8 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-
-      </div>
+        </>
+      )}
     </div>
   );
 }
