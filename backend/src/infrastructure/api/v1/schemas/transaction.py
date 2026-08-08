@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel
@@ -23,13 +23,13 @@ class TransactionUpdate(BaseModel):
 
 class TransactionResponse(TransactionCreate):
     id: UUID
-
-class PaginatedTransactionsResponse(BaseModel):
-    items: List[TransactionResponse]
-    total: int
     status: str
     is_recurring: bool
     is_anomalous: bool
 
     class Config:
         from_attributes = True
+
+class PaginatedTransactionsResponse(BaseModel):
+    items: List[TransactionResponse]
+    total: int
