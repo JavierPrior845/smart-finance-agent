@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Database & Redis
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/smart_finance"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smart_finance"
     REDIS_URL: str = "redis://redis:6379/0"
 
     # Security & Telegram

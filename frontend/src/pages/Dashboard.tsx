@@ -215,6 +215,7 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+        </div>
         </>
       )}
     </div>

@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Any
 from sqlalchemy import select, func, and_, extract
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,11 +13,11 @@ class AnalyticsRepository:
 
     async def get_kpis(self) -> Dict[str, Any]:
         """Calculates global KPIs: Total Net Worth (liquid), Monthly Income, Monthly Expenses."""
-        now = datetime.now()
-        start_of_month = datetime(now.year, now.month, 1)
+        now = datetime.now(timezone.utc)
+        start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
 
         # 1. Total Liquid Net Worth (Sum of all account balances)
-        stmt_nw = select(func.sum(AccountORM.balance))
+        stmt_nw = select(func.sum(AccountORM.current_balance))
         result_nw = await self.session.execute(stmt_nw)
         net_worth = result_nw.scalar_one_or_none() or 0.0
 
@@ -88,7 +88,7 @@ class AnalyticsRepository:
         # Note: A real implementation might require a calendar table to guarantee all months are returned,
         # but here we aggregate by year/month of existing transactions.
         
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         start_date = now - timedelta(days=30 * months)
         
         stmt = (
@@ -131,15 +131,15 @@ class AnalyticsRepository:
 
     async def get_pacing(self) -> List[Dict[str, Any]]:
         """Returns cumulative daily spending for the current month vs previous month."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         
         # Current month limits
-        curr_start = datetime(now.year, now.month, 1)
+        curr_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
         
         # Previous month limits
         prev_month = now.month - 1 if now.month > 1 else 12
         prev_year = now.year if now.month > 1 else now.year - 1
-        prev_start = datetime(prev_year, prev_month, 1)
+        prev_start = datetime(prev_year, prev_month, 1, tzinfo=timezone.utc)
         prev_end = curr_start - timedelta(seconds=1)
         
         # Fetch current month expenses
