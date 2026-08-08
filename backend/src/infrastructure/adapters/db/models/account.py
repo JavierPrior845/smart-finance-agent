@@ -17,6 +17,7 @@ class AccountORM(Base):
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     initial_balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0.00)
     current_balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0.00)
+    is_main: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
