@@ -74,6 +74,39 @@ export default function Accounts() {
             </table>
           </div>
         </div>
+
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <h3 style={{ marginBottom: '24px' }}>Posiciones Cerradas (Histórico)</h3>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Activo</th>
+                  <th>Invertido</th>
+                  <th>Retirado</th>
+                  <th>P&L</th>
+                  <th>ROI</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>TSLA</strong></td>
+                  <td>€2000.00</td>
+                  <td>€2500.00</td>
+                  <td className="text-success">+€500.00</td>
+                  <td className="text-success">+25.0%</td>
+                </tr>
+                <tr>
+                  <td><strong>AMZN</strong></td>
+                  <td>€1000.00</td>
+                  <td>€900.00</td>
+                  <td className="text-danger">-€100.00</td>
+                  <td className="text-danger">-10.0%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

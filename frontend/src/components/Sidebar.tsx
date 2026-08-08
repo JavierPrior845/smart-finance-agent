@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, History, Settings } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, History, Inbox, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import './Sidebar.css';
 
@@ -9,6 +9,7 @@ export function Sidebar() {
     { to: '/budgets', icon: PiggyBank, label: 'Presupuestos' },
     { to: '/accounts', icon: Wallet, label: 'Cuentas' },
     { to: '/transactions', icon: History, label: 'Histórico' },
+    { to: '/inbox', icon: Inbox, label: 'Inbox' },
   ];
 
   return (
@@ -32,10 +33,10 @@ export function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <button className="nav-item">
+        <NavLink to="/settings" className={({ isActive }) => clsx('nav-item', isActive && 'active')}>
           <Settings size={20} />
           <span>Configuración</span>
-        </button>
+        </NavLink>
       </div>
     </aside>
   );

@@ -21,10 +21,36 @@ export default function Transactions() {
             <Filter size={18} />
             Filtrar
           </button>
-          <button className="glass-button primary">
-            <Plus size={18} />
-            Añadir Transacción
-          </button>
+          <div className="page-controls">
+            <button className="glass-button primary">+ Añadir Transacción</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-panel" style={{ padding: '16px 24px', marginBottom: '-16px' }}>
+        <div className="filters-bar">
+          <div className="input-group" style={{ flex: 1, minWidth: '200px' }}>
+            <label>Buscar</label>
+            <input type="text" placeholder="Concepto, comercio..." />
+          </div>
+          <div className="input-group" style={{ minWidth: '150px' }}>
+            <label>Categoría</label>
+            <select>
+              <option value="">Todas</option>
+              <option value="alimentacion">Alimentación</option>
+              <option value="vivienda">Vivienda</option>
+              <option value="ocio">Ocio</option>
+            </select>
+          </div>
+          <div className="input-group" style={{ minWidth: '150px' }}>
+            <label>Fuente</label>
+            <select>
+              <option value="">Todas</option>
+              <option value="telegram">Telegram</option>
+              <option value="csv">Import (CSV)</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
         </div>
       </div>
 
