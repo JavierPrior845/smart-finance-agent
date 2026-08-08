@@ -37,6 +37,7 @@ def get_manage_budget_use_case(
 
 def get_create_transaction_use_case(
     transaction_repo: SQLAlchemyTransactionRepository = Depends(get_transaction_repo),
-    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo)
+    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
+    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
 ) -> CreateTransactionUseCase:
-    return CreateTransactionUseCase(transaction_repo, account_repo)
+    return CreateTransactionUseCase(transaction_repo, account_repo, category_repo)

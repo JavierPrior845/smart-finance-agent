@@ -67,15 +67,15 @@ export default function Dashboard() {
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.amount || !formData.description || !formData.category_id) return;
+    if (!formData.amount || !formData.description) return;
     
     setSavingTx(true);
     try {
       await api.post('/transactions', {
+        type: formData.type,
         amount: parseFloat(formData.amount),
         description: formData.description,
-        type: formData.type,
-        category_id: formData.category_id,
+        category_id: formData.category_id || null,
         transaction_date: new Date().toISOString(),
         source: 'manual'
       });
@@ -316,14 +316,13 @@ export default function Dashboard() {
               </div>
 
               <div className="input-group">
-                <label>Categoría</label>
+                <label>Categoría (Opcional)</label>
                 <select 
-                  required
                   value={formData.category_id} 
                   onChange={e => setFormData({...formData, category_id: e.target.value})}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
-                  <option value="">Selecciona una categoría...</option>
+                  <option value="">(Sin categoría - irá a Otros)</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}

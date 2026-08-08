@@ -4,10 +4,13 @@ from src.application.ports.transaction_repository import TransactionRepository
 from src.application.ports.account_repository import AccountRepository
 from src.domain.models.transaction import Transaction, TransactionType
 
+from src.application.ports.category_repository import CategoryRepository
+
 class CreateTransactionUseCase:
-    def __init__(self, transaction_repo: TransactionRepository, account_repo: AccountRepository):
+    def __init__(self, transaction_repo: TransactionRepository, account_repo: AccountRepository, category_repo: CategoryRepository):
         self.transaction_repo = transaction_repo
         self.account_repo = account_repo
+        self.category_repo = category_repo
 
     async def execute(self, 
                       amount: float, 
@@ -23,10 +26,17 @@ class CreateTransactionUseCase:
         if account_id is None:
             main_account = await self.account_repo.get_main_account()
             if not main_account:
-                raise ValueError("No account_id provided and no main account is configured.")
+                raise ValueError("No main account found and no account_id provided")
             resolved_account_id = main_account.id
         else:
             resolved_account_id = account_id
+
+        # 1.5. Fallback a categoría "Otros" si no se provee
+        if category_id is None:
+            all_categories = await self.category_repo.get_all()
+            otros = next((c for c in all_categories if c.name == "Otros"), None)
+            if otros:
+                category_id = otros.id
 
         # 2. Validar que la cuenta existe
         account = await self.account_repo.get_by_id(resolved_account_id)
