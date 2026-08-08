@@ -28,30 +28,66 @@ export default function Dashboard() {
     { month: 'Oct', liquidez: 5350, inversiones: 7100 },
   ];
 
+  const [showModal, setShowModal] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    amount: '',
+    description: '',
+    type: 'EXPENSE',
+    category_id: ''
+  });
+  const [savingTx, setSavingTx] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [kpiRes, distRes, flowRes, pacingRes, catRes] = await Promise.all([
+        api.get('/analytics/kpis'),
+        api.get('/analytics/distribution'),
+        api.get('/analytics/cashflow'),
+        api.get('/analytics/pacing'),
+        api.get('/categories')
+      ]);
+      
+      setKpis(kpiRes.data);
+      setDistributionData(distRes.data.data);
+      setCashFlowData(flowRes.data.data);
+      setPacingData(pacingRes.data.data);
+      setCategories(catRes.data);
+    } catch (error) {
+      console.error("Error fetching dashboard data", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [kpiRes, distRes, flowRes, pacingRes] = await Promise.all([
-          api.get('/analytics/kpis'),
-          api.get('/analytics/distribution'),
-          api.get('/analytics/cashflow'),
-          api.get('/analytics/pacing')
-        ]);
-        
-        setKpis(kpiRes.data);
-        setDistributionData(distRes.data.data);
-        setCashFlowData(flowRes.data.data);
-        setPacingData(pacingRes.data.data);
-      } catch (error) {
-        console.error("Error fetching analytics data", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchData();
   }, []);
+
+  const handleCreateTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.amount || !formData.description || !formData.category_id) return;
+    
+    setSavingTx(true);
+    try {
+      await api.post('/transactions', {
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        type: formData.type,
+        category_id: formData.category_id,
+        transaction_date: new Date().toISOString(),
+        source: 'manual'
+      });
+      setShowModal(false);
+      setFormData({ amount: '', description: '', type: 'EXPENSE', category_id: '' });
+      await fetchData(); // Reload dashboard data
+    } catch (error) {
+      console.error("Error creating transaction", error);
+    } finally {
+      setSavingTx(false);
+    }
+  };
 
   const handlePieClick = (data: any) => {
     setSelectedCategory(prev => prev === data.name ? null : data.name);
@@ -64,7 +100,7 @@ export default function Dashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">Visión general de tus finanzas</p>
         </div>
-        <button className="glass-button primary">
+        <button className="glass-button primary" onClick={() => setShowModal(true)}>
           + Nuevo Gasto
         </button>
       </div>
@@ -223,6 +259,88 @@ export default function Dashboard() {
         </div>
         </div>
         </>
+      )}
+
+      {/* Modal Nueva Transacción */}
+      {showModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="glass-panel" style={{ width: '400px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>Nueva Transacción</h3>
+              <button onClick={() => setShowModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateTransaction} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label>Tipo</label>
+                <select 
+                  value={formData.type} 
+                  onChange={e => setFormData({...formData, type: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="EXPENSE">Gasto</option>
+                  <option value="INCOME">Ingreso</option>
+                </select>
+              </div>
+              
+              <div className="input-group">
+                <label>Cantidad (€)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  required
+                  value={formData.amount} 
+                  onChange={e => setFormData({...formData, amount: e.target.value})}
+                  placeholder="Ej. 45.50"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Descripción</label>
+                <input 
+                  type="text" 
+                  required
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  placeholder="Ej. Cena restaurante"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Categoría</label>
+                <select 
+                  required
+                  value={formData.category_id} 
+                  onChange={e => setFormData({...formData, category_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">Selecciona una categoría...</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button 
+                type="submit" 
+                className="glass-button primary" 
+                style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}
+                disabled={savingTx}
+              >
+                {savingTx ? <Loader2 className="spin" size={20} /> : 'Guardar'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

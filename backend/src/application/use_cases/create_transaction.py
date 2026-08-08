@@ -33,19 +33,25 @@ class CreateTransactionUseCase:
         if not account:
             raise ValueError(f"Account {resolved_account_id} not found")
 
+        # Convert amount to absolute value for safe math
+        abs_amount = abs(amount)
+        transaction_amount = abs_amount
+
         # 3. Lógica contable (Actualizar saldos de cuenta)
         if transaction_type == 'EXPENSE' or transaction_type == 'INVESTMENT_OUTFLOW':
-            account.current_balance -= amount
+            account.current_balance -= abs_amount
+            transaction_amount = -abs_amount
         elif transaction_type == 'INCOME' or transaction_type == 'INVESTMENT_INFLOW':
-            account.current_balance += amount
+            account.current_balance += abs_amount
         elif transaction_type == 'TRANSFER':
             if not destination_account_id:
                 raise ValueError("TRANSFER requires a destination_account_id")
             dest_account = await self.account_repo.get_by_id(destination_account_id)
             if not dest_account:
                 raise ValueError(f"Destination account {destination_account_id} not found")
-            account.current_balance -= amount
-            dest_account.current_balance += amount
+            account.current_balance -= abs_amount
+            dest_account.current_balance += abs_amount
+            transaction_amount = -abs_amount
             await self.account_repo.update(dest_account)
         elif transaction_type == 'BALANCE_ADJUSTMENT':
             account.current_balance = amount  # En un ajuste, el monto reemplaza al balance
@@ -58,7 +64,7 @@ class CreateTransactionUseCase:
             account_id=resolved_account_id,
             destination_account_id=destination_account_id,
             type=transaction_type,
-            amount=amount,
+            amount=transaction_amount,
             description=description,
             category_id=category_id,
             source=source,
