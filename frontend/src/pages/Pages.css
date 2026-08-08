@@ -1,6 +1,18 @@
 /* Pages Shared CSS */
 
 /* Budgets */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .budget-list {
   display: flex;
   flex-direction: column;

@@ -110,7 +110,7 @@ export default function Budgets() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="responsive-grid">
         {/* Columna Izquierda: Progreso del Mes */}
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Progreso de este Mes</h3>
