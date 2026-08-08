@@ -46,18 +46,6 @@ export default function Dashboard() {
     { month: 'Oct', liquidez: 5350, inversiones: 7100 },
   ];
 
-  const recentTransactions = [
-    { id: 1, date: '2023-10-25', desc: 'Mercadona', amount: -45.50, cat: 'Alimentación' },
-    { id: 2, date: '2023-10-24', desc: 'Iberdrola', amount: -85.00, cat: 'Vivienda' },
-    { id: 3, date: '2023-10-22', desc: 'Uber', amount: -15.20, cat: 'Transporte' },
-    { id: 4, date: '2023-10-21', desc: 'Restaurante El Paso', amount: -60.00, cat: 'Ocio' },
-    { id: 5, date: '2023-10-20', desc: 'Carrefour', amount: -120.00, cat: 'Alimentación' },
-  ];
-
-  const filteredTransactions = selectedCategory 
-    ? recentTransactions.filter(t => t.cat === selectedCategory)
-    : recentTransactions;
-
   const handlePieClick = (data: any) => {
     setSelectedCategory(prev => prev === data.name ? null : data.name);
   };
@@ -215,29 +203,6 @@ export default function Dashboard() {
                 />
               </PieChart>
             </ResponsiveContainer>
-            
-            <div style={{ marginTop: '16px' }}>
-              <div className="table-responsive">
-                <table className="data-table" style={{ fontSize: '0.85rem' }}>
-                  <tbody>
-                    {filteredTransactions.map(txn => (
-                      <tr key={txn.id}>
-                        <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{txn.date.slice(-5)}</td>
-                        <td style={{ padding: '8px' }}>{txn.desc}</td>
-                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>€{Math.abs(txn.amount).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    {filteredTransactions.length === 0 && (
-                      <tr>
-                        <td colSpan={3} style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                          No hay gastos recientes en esta categoría
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         </div>
 
