@@ -38,16 +38,16 @@ async def seed():
 
         # 2. Crear Categorías
         cats_data = [
-            ("Vivienda", "#8a2be2", "expense"),
-            ("Alimentación", "#00f5d4", "expense"),
-            ("Ocio", "#ff007f", "expense"),
-            ("Transporte", "#ffbe0b", "expense"),
-            ("Nómina", "#4ade80", "income"),
+            ("Vivienda", "#8a2be2", 1000.0),
+            ("Alimentación", "#00f5d4", 400.0),
+            ("Ocio", "#ff007f", 200.0),
+            ("Transporte", "#ffbe0b", 150.0),
+            ("Nómina", "#4ade80", None),
         ]
         
         categories = {}
-        for name, color, _ in cats_data:
-            cat = CategoryORM(name=name, color=color)
+        for name, color, limit in cats_data:
+            cat = CategoryORM(name=name, color=color, default_budget_limit=limit)
             session.add(cat)
             categories[name] = cat
         

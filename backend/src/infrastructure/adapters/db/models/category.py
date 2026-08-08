@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -19,6 +19,8 @@ class CategoryORM(Base):
     icon: Mapped[str | None] = mapped_column(String(30), nullable=True)
     color: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_budgetable: Mapped[bool] = mapped_column(Boolean, default=True)
+    default_budget_limit: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

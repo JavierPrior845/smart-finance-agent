@@ -1,6 +1,7 @@
 from typing import List
 from uuid import UUID
 from sqlalchemy import select, func, and_
+import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
@@ -78,22 +79,37 @@ class SQLAlchemyBudgetRepository(BudgetRepository):
             )
         ).group_by(TransactionORM.category_id).subquery()
 
-        stmt = select(
-            BudgetORM.id,
+        # Subquery for budget overrides for the current month
+        budget_subq = select(
             BudgetORM.category_id,
-            BudgetORM.monthly_limit,
-            BudgetORM.period_month,
-            BudgetORM.period_year,
-            CategoryORM.name.label("category_name"),
-            CategoryORM.color.label("category_color"),
-            func.coalesce(spent_subq.c.spent, 0).label("spent")
-        ).select_from(BudgetORM).join(
-            CategoryORM, BudgetORM.category_id == CategoryORM.id
-        ).outerjoin(
-            spent_subq, BudgetORM.category_id == spent_subq.c.category_id
+            BudgetORM.id.label("budget_id"),
+            BudgetORM.monthly_limit.label("override_limit")
         ).where(
             BudgetORM.period_month == month,
             BudgetORM.period_year == year
+        ).subquery()
+
+        # Effective limit is the override if it exists, else the default
+        effective_limit = func.coalesce(budget_subq.c.override_limit, CategoryORM.default_budget_limit)
+
+        stmt = select(
+            func.coalesce(budget_subq.c.budget_id, CategoryORM.id).label("id"), # return some ID for the frontend (budget id or category id as fallback)
+            CategoryORM.id.label("category_id"),
+            effective_limit.label("monthly_limit"),
+            func.cast(month, sqlalchemy.Integer).label("period_month"),
+            func.cast(year, sqlalchemy.Integer).label("period_year"),
+            CategoryORM.name.label("category_name"),
+            CategoryORM.color.label("category_color"),
+            func.coalesce(spent_subq.c.spent, 0).label("spent")
+        ).select_from(CategoryORM).outerjoin(
+            budget_subq, CategoryORM.id == budget_subq.c.category_id
+        ).outerjoin(
+            spent_subq, CategoryORM.id == spent_subq.c.category_id
+        ).where(
+            and_(
+                CategoryORM.is_active == True,
+                effective_limit > 0
+            )
         )
 
         result = await self.session.execute(stmt)

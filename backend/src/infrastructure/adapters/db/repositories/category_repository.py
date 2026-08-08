@@ -19,6 +19,8 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
             icon=orm.icon,
             color=orm.color,
             is_budgetable=orm.is_budgetable,
+            default_budget_limit=float(orm.default_budget_limit) if orm.default_budget_limit is not None else None,
+            is_active=orm.is_active,
             created_at=orm.created_at
         )
 
@@ -30,6 +32,8 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
             icon=domain.icon,
             color=domain.color,
             is_budgetable=domain.is_budgetable,
+            default_budget_limit=domain.default_budget_limit,
+            is_active=domain.is_active,
             created_at=domain.created_at
         )
 
@@ -40,7 +44,8 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
         return self._to_domain(orm) if orm else None
 
     async def get_all(self) -> List[Category]:
-        stmt = select(CategoryORM)
+        # Solo devolver las activas para no ensuciar la interfaz, o podemos devolver todas
+        stmt = select(CategoryORM).where(CategoryORM.is_active == True)
         result = await self.session.execute(stmt)
         return [self._to_domain(orm) for orm in result.scalars().all()]
 
@@ -58,6 +63,8 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
             orm.icon = category.icon
             orm.color = category.color
             orm.is_budgetable = category.is_budgetable
+            orm.default_budget_limit = category.default_budget_limit
+            orm.is_active = category.is_active
             await self.session.flush()
             return self._to_domain(orm)
         return category

@@ -8,6 +8,8 @@ class CategoryCreate(BaseModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     is_budgetable: bool = True
+    default_budget_limit: Optional[float] = None
+    is_active: bool = True
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
@@ -15,6 +17,8 @@ class CategoryUpdate(BaseModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     is_budgetable: Optional[bool] = None
+    default_budget_limit: Optional[float] = None
+    is_active: Optional[bool] = None
 
 class CategoryResponse(CategoryCreate):
     id: UUID

@@ -9,4 +9,6 @@ class Category(BaseModel):
     icon: str | None = None
     color: str | None = None
     is_budgetable: bool = True
+    default_budget_limit: float | None = None
+    is_active: bool = True
     created_at: datetime | None = None
