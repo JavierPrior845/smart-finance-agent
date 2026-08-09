@@ -13,6 +13,7 @@ from src.application.use_cases.manage_category import ManageCategoryUseCase
 from src.application.use_cases.manage_budget import ManageBudgetUseCase
 from src.application.use_cases.create_transaction import CreateTransactionUseCase
 from src.application.use_cases.sync_investments import SyncInvestmentsUseCase
+from src.application.use_cases.manage_investment import ManageInvestmentUseCase
 
 
 def get_account_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyAccountRepository:
@@ -51,3 +52,9 @@ def get_sync_investments_use_case(
     investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo)
 ) -> SyncInvestmentsUseCase:
     return SyncInvestmentsUseCase(investment_repo)
+
+def get_manage_investment_use_case(
+    investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo),
+    create_transaction_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case)
+) -> ManageInvestmentUseCase:
+    return ManageInvestmentUseCase(investment_repo, create_transaction_use_case)

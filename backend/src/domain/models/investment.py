@@ -29,3 +29,16 @@ class InvestmentSnapshot:
     price: float
     total_value: float
     created_at: Optional[datetime] = None
+
+@dataclass
+class InvestmentMovement:
+    id: UUID
+    asset_id: UUID
+    movement_type: str
+    amount: float
+    movement_date: datetime
+    transaction_id: Optional[UUID] = None
+    units: Optional[float] = None
+    unit_price: Optional[float] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None

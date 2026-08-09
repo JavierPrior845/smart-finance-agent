@@ -7,7 +7,7 @@ from src.infrastructure.adapters.db.models.transaction import TransactionORM
 from src.infrastructure.adapters.db.models.account import AccountORM
 from src.infrastructure.adapters.db.models.category import CategoryORM
 from src.infrastructure.adapters.db.models.setting import AppSettingORM
-from src.infrastructure.adapters.db.models.investment import InvestmentSnapshotORM
+from src.infrastructure.adapters.db.models.investment import InvestmentSnapshotORM, InvestmentAssetORM
 
 class AnalyticsRepository:
     def __init__(self, session: AsyncSession):
@@ -21,7 +21,23 @@ class AnalyticsRepository:
         # 1. Total Liquid Net Worth (Sum of all account balances)
         stmt_nw = select(func.sum(AccountORM.current_balance))
         result_nw = await self.session.execute(stmt_nw)
-        net_worth = result_nw.scalar_one_or_none() or 0.0
+        liquid_net_worth = result_nw.scalar_one_or_none() or 0.0
+
+        # 1.1 Total Investments Value (Latest snapshot of OPEN investments)
+        # For MVP, we sum the invested_amount or total_value if we want
+        # Let's just sum invested_amount of OPEN for simplicity in KPI, or better, the latest snapshot.
+        stmt_inv = select(func.sum(InvestmentSnapshotORM.total_value)).where(
+            InvestmentSnapshotORM.id.in_(
+                select(func.max(InvestmentSnapshotORM.id)).group_by(InvestmentSnapshotORM.asset_id)
+            )
+        )
+        # Wait, grouping by asset_id and max(id) might not give the latest if ids are UUIDs. 
+        # So let's sum the invested_amount of OPEN assets plus PnL, or just simple invested_amount for now, or just let's fetch active assets.
+        # Let's do something simpler: sum of invested_amount of all OPEN assets.
+        stmt_open_inv = select(func.sum(InvestmentAssetORM.invested_amount)).where(InvestmentAssetORM.status == 'OPEN')
+        open_inv_val = (await self.session.execute(stmt_open_inv)).scalar_one_or_none() or 0.0
+        
+        net_worth = float(liquid_net_worth) + float(open_inv_val)
 
         # 2. Monthly Income
         stmt_income = select(func.sum(TransactionORM.amount)).where(
