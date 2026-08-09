@@ -37,6 +37,7 @@ async def seed():
         print("Cuenta creada.")
 
         # 2. Crear Categorías
+        cats_data = [
             ("Vivienda", "#8a2be2", 1000.0),
             ("Alimentación", "#00f5d4", 400.0),
             ("Ocio", "#ff007f", 200.0),
