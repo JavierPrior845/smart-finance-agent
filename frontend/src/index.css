@@ -1,0 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Brand Colors - Vibrant */
+  --color-primary: #8a2be2; /* BlueViolet */
+  --color-primary-light: #9d4edd;
+  --color-secondary: #00f5d4; /* Vibrant Teal/Mint */
+  --color-accent: #ff007f; /* Bright Pink */
+
+  /* Success & Danger */
+  --color-success: #00ff7f; /* SpringGreen */
+  --color-danger: #ff3366;
+  --color-warning: #ffbe0b;
+
+  /* Backgrounds - Premium Dark Mode */
+  --bg-app: #0a0a0f; /* Very dark blue/black */
+  --bg-panel: rgba(20, 20, 30, 0.6); /* Semi-transparent panel */
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --bg-glass-hover: rgba(255, 255, 255, 0.08);
+
+  /* Borders & Shadows */
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glow-primary: 0 0 15px rgba(138, 43, 226, 0.4);
+
+  /* Typography */
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0b0;
+  --text-muted: #6a6a7a;
+
+  --font-family: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Subtle background gradient blob effect */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(138, 43, 226, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(0, 245, 212, 0.1), transparent 25%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-button {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-family);
+  font-weight: 500;
+}
+
+.glass-button:hover {
+  background: var(--bg-glass-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.glass-button.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary-light);
+  box-shadow: var(--glow-primary);
+}
+
+.glass-button.primary:hover {
+  background: var(--color-primary-light);
+  transform: translateY(-1px);
+}
+
+/* Layout Utilities */
+.app-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+    gap: 16px;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Typography styles */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #fff, #a0a0b0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.page-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}

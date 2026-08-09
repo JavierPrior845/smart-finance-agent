@@ -1,0 +1,17 @@
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.infrastructure.adapters.db.session import AsyncSessionLocal
+from src.infrastructure.adapters.db.repositories.analytics_repository import AnalyticsRepository
+
+async def main():
+    async with AsyncSessionLocal() as session:
+        repo = AnalyticsRepository(session)
+        try:
+            res = await repo.get_kpis()
+            print(res)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+
+if __name__ == "__main__":
+    asyncio.run(main())
