@@ -29,8 +29,18 @@ export default function Accounts() {
     }
   };
 
+  const syncInvestments = async () => {
+    try {
+      await api.post('/investments/sync');
+      // Later this will refetch investment list
+    } catch (error) {
+      console.error("Error syncing investments", error);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
+    syncInvestments(); // Silent sync in background
   }, []);
 
   const handleCreateAccount = async (e: React.FormEvent) => {

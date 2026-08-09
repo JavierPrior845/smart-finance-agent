@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Numeric, DateTime, ForeignKey
+from sqlalchemy import String, Numeric, DateTime, ForeignKey, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -62,3 +62,21 @@ class InvestmentMovementORM(Base):
 
     asset: Mapped["InvestmentAssetORM"] = relationship("InvestmentAssetORM")
     transaction: Mapped["TransactionORM | None"] = relationship("TransactionORM")
+
+class InvestmentSnapshotORM(Base):
+    __tablename__ = "investment_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("investment_assets.id", ondelete="CASCADE"), nullable=False
+    )
+    snapshot_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    price: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
+    total_value: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    asset: Mapped["InvestmentAssetORM"] = relationship("InvestmentAssetORM")

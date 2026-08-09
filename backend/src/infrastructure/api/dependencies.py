@@ -6,11 +6,13 @@ from src.infrastructure.adapters.db.repositories.account_repository import SQLAl
 from src.infrastructure.adapters.db.repositories.category_repository import SQLAlchemyCategoryRepository
 from src.infrastructure.adapters.db.repositories.budget_repository import SQLAlchemyBudgetRepository
 from src.infrastructure.adapters.db.repositories.transaction_repository import SQLAlchemyTransactionRepository
+from src.infrastructure.adapters.db.repositories.investment_repository import SQLAlchemyInvestmentRepository
 
 from src.application.use_cases.manage_account import ManageAccountUseCase
 from src.application.use_cases.manage_category import ManageCategoryUseCase
 from src.application.use_cases.manage_budget import ManageBudgetUseCase
 from src.application.use_cases.create_transaction import CreateTransactionUseCase
+from src.application.use_cases.sync_investments import SyncInvestmentsUseCase
 
 
 def get_account_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyAccountRepository:
@@ -21,6 +23,9 @@ def get_category_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlc
 
 def get_transaction_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyTransactionRepository:
     return SQLAlchemyTransactionRepository(session)
+
+def get_investment_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyInvestmentRepository:
+    return SQLAlchemyInvestmentRepository(session)
 
 def get_manage_account_use_case(repo: SQLAlchemyAccountRepository = Depends(get_account_repo)) -> ManageAccountUseCase:
     return ManageAccountUseCase(repo)
@@ -41,3 +46,8 @@ def get_create_transaction_use_case(
     category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
 ) -> CreateTransactionUseCase:
     return CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
+
+def get_sync_investments_use_case(
+    investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo)
+) -> SyncInvestmentsUseCase:
+    return SyncInvestmentsUseCase(investment_repo)

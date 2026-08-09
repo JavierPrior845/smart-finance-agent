@@ -17,16 +17,8 @@ export default function Dashboard() {
   const [distributionData, setDistributionData] = useState<any[]>([]);
   const [cashFlowData, setCashFlowData] = useState<any[]>([]);
   const [pacingData, setPacingData] = useState<any[]>([]);
-  
-  // Note: Net worth historical is mocked for now until Subtask 2.5 is completed
-  const netWorthData = [
-    { month: 'May', liquidez: 4000, inversiones: 6000 },
-    { month: 'Jun', liquidez: 4200, inversiones: 6300 },
-    { month: 'Jul', liquidez: 3500, inversiones: 6800 },
-    { month: 'Ago', liquidez: 4500, inversiones: 7100 },
-    { month: 'Sep', liquidez: 5100, inversiones: 7000 },
-    { month: 'Oct', liquidez: 5350, inversiones: 7100 },
-  ];
+  const [netWorthData, setNetWorthData] = useState<any[]>([]);
+  const [syncingInvestments, setSyncingInvestments] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -43,11 +35,12 @@ export default function Dashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [kpiRes, distRes, flowRes, pacingRes, catRes, accRes] = await Promise.all([
+      const [kpiRes, distRes, flowRes, pacingRes, netWorthRes, catRes, accRes] = await Promise.all([
         api.get('/analytics/kpis'),
         api.get('/analytics/distribution'),
         api.get('/analytics/cashflow'),
         api.get('/analytics/pacing'),
+        api.get('/analytics/networth'),
         api.get('/categories'),
         api.get('/accounts')
       ]);
@@ -56,6 +49,7 @@ export default function Dashboard() {
       setDistributionData(distRes.data.data);
       setCashFlowData(flowRes.data.data);
       setPacingData(pacingRes.data.data);
+      setNetWorthData(netWorthRes.data.data);
       setCategories(catRes.data);
       setAccounts(accRes.data);
     } catch (error) {
@@ -65,8 +59,22 @@ export default function Dashboard() {
     }
   };
 
+  const syncInvestments = async () => {
+    try {
+      setSyncingInvestments(true);
+      await api.post('/investments/sync');
+      // Refetch data after sync to get updated net worth
+      await fetchData();
+    } catch (error) {
+      console.error("Error syncing investments", error);
+    } finally {
+      setSyncingInvestments(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    syncInvestments(); // Silent sync in background
   }, []);
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
@@ -102,7 +110,10 @@ export default function Dashboard() {
     <div className="view-container">
       <div className="view-header">
         <div>
-          <h1 className="page-title">Dashboard</h1>
+          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Dashboard
+            {syncingInvestments && <span title="Sincronizando inversiones..."><Loader2 className="spin" size={20} style={{ color: 'var(--color-primary)' }} /></span>}
+          </h1>
           <p className="page-subtitle">Visión general de tus finanzas</p>
         </div>
         <button className="glass-button primary" onClick={() => setShowModal(true)}>

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from src.infrastructure.adapters.db.session import get_db_session
 from src.infrastructure.adapters.db.repositories.analytics_repository import AnalyticsRepository
-from src.infrastructure.api.v1.schemas.analytics import KPIsResponse, DistributionResponse, CashflowResponse, PacingResponse
+from src.infrastructure.api.v1.schemas.analytics import KPIsResponse, DistributionResponse, CashflowResponse, PacingResponse, NetWorthHistoryResponse
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -33,3 +33,9 @@ async def get_dashboard_pacing(db: AsyncSession = Depends(get_db_session)):
     repo = AnalyticsRepository(db)
     data = await repo.get_pacing()
     return PacingResponse(data=data)
+
+@router.get("/networth", response_model=NetWorthHistoryResponse)
+async def get_dashboard_networth(db: AsyncSession = Depends(get_db_session)):
+    repo = AnalyticsRepository(db)
+    data = await repo.get_networth_history(months=6)
+    return NetWorthHistoryResponse(data=data)

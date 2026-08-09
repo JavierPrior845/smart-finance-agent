@@ -1,12 +1,13 @@
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Any
-from sqlalchemy import select, func, and_, extract
+from sqlalchemy import select, func, and_, extract, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.adapters.db.models.transaction import TransactionORM
 from src.infrastructure.adapters.db.models.account import AccountORM
 from src.infrastructure.adapters.db.models.category import CategoryORM
 from src.infrastructure.adapters.db.models.setting import AppSettingORM
+from src.infrastructure.adapters.db.models.investment import InvestmentSnapshotORM
 
 class AnalyticsRepository:
     def __init__(self, session: AsyncSession):
@@ -221,3 +222,57 @@ class AnalyticsRepository:
             })
             
         return pacing_data
+
+    async def get_networth_history(self, months: int = 6) -> List[Dict[str, Any]]:
+        """Returns monthly history of liquid net worth and investments."""
+        now = datetime.now(timezone.utc)
+        data = []
+        
+        # Current liquid net worth
+        stmt_liquid = select(func.sum(AccountORM.current_balance))
+        current_liquid = float((await self.session.execute(stmt_liquid)).scalar_one_or_none() or 0.0)
+
+        for i in range(months - 1, -1, -1):
+            target_date = now - timedelta(days=30 * i)
+            month_start = datetime(target_date.year, target_date.month, 1, tzinfo=timezone.utc)
+            if month_start.month == 12:
+                month_end = datetime(target_date.year + 1, 1, 1, tzinfo=timezone.utc)
+            else:
+                month_end = datetime(target_date.year, target_date.month + 1, 1, tzinfo=timezone.utc)
+            
+            # Investments sum at that month
+            stmt_inv = select(func.sum(InvestmentSnapshotORM.total_value)).where(
+                and_(
+                    InvestmentSnapshotORM.snapshot_date >= month_start.date(),
+                    InvestmentSnapshotORM.snapshot_date < month_end.date()
+                )
+            )
+            # If multiple snapshots in a month, approximate with average for MVP.
+            stmt_inv_avg = select(func.avg(InvestmentSnapshotORM.total_value)).where(
+                and_(
+                    InvestmentSnapshotORM.snapshot_date >= month_start.date(),
+                    InvestmentSnapshotORM.snapshot_date < month_end.date()
+                )
+            )
+            inv_val = (await self.session.execute(stmt_inv_avg)).scalar_one_or_none() or 0.0
+            
+            stmt_cf = select(
+                func.sum(
+                    case(
+                        (TransactionORM.type == 'INCOME', TransactionORM.amount),
+                        (TransactionORM.type == 'EXPENSE', -TransactionORM.amount),
+                        else_=0
+                    )
+                )
+            ).where(TransactionORM.transaction_date >= month_end)
+            
+            cashflow_since_then = float((await self.session.execute(stmt_cf)).scalar_one_or_none() or 0.0)
+            approx_liquid = current_liquid - cashflow_since_then
+
+            data.append({
+                "month": target_date.strftime("%b"),
+                "liquidez": round(float(approx_liquid), 2),
+                "inversiones": round(float(inv_val), 2)
+            })
+            
+        return data

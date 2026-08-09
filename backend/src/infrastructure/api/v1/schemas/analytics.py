@@ -34,3 +34,11 @@ class DailyPacing(BaseModel):
 
 class PacingResponse(BaseModel):
     data: List[DailyPacing]
+
+class NetWorthData(BaseModel):
+    month: str
+    liquidez: float
+    inversiones: float
+
+class NetWorthHistoryResponse(BaseModel):
+    data: List[NetWorthData]
