@@ -45,6 +45,26 @@ async def voice_message_handler(message: Message) -> None:
         file_id
     )
 
+@router.message(F.text & ~F.text.startswith("/"))
+async def text_message_handler(message: Message) -> None:
+    """
+    Handles incoming plain text messages, enqueues them directly for extraction.
+    """
+    if not message.text:
+        return
+        
+    # 1. Send immediate response
+    processing_msg = await message.reply("📝 <i>Procesando mensaje de texto...</i>", parse_mode="HTML")
+    
+    # 2. Enqueue task in ARQ
+    redis = await get_redis_pool()
+    await redis.enqueue_job(
+        "process_text_task", 
+        message.chat.id, 
+        processing_msg.message_id, 
+        message.text
+    )
+
 @router.callback_query(F.data.startswith("cancel_tx:"))
 async def cancel_transaction_handler(callback: CallbackQuery) -> None:
     tx_id = callback.data.split(":")[1]
