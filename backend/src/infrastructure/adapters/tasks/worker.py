@@ -4,11 +4,15 @@ import json
 import uuid
 from arq.connections import RedisSettings
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 from src.config import settings
 from src.infrastructure.adapters.telegram.bot import get_bot
 from src.infrastructure.adapters.ai.local_stt import transcribe_audio
 from src.infrastructure.adapters.ai.data_extractor import extract_transaction_data
 from src.infrastructure.adapters.redis.client import get_redis_pool
+from src.infrastructure.adapters.db.session import AsyncSessionLocal
+from src.infrastructure.adapters.db.repositories.account_repository import SQLAlchemyAccountRepository
+from src.infrastructure.adapters.db.repositories.category_repository import SQLAlchemyCategoryRepository
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +41,22 @@ async def process_voice_task(ctx, chat_id: int, message_id: int, file_id: str):
         transcription = transcribe_audio(file_path)
         logger.info(f"Transcription: {transcription}")
         
-        # 3. Extract Data
-        logger.info("Extracting data...")
-        data = extract_transaction_data(transcription)
+        # 3. Fetch Accounts & Categories from DB to condition LLM
+        account_names = []
+        category_names = []
+        async with AsyncSessionLocal() as session:
+            acc_repo = SQLAlchemyAccountRepository(session)
+            cat_repo = SQLAlchemyCategoryRepository(session)
+            accounts = await acc_repo.get_all()
+            categories = await cat_repo.get_all()
+            account_names = [a.name for a in accounts]
+            category_names = [c.name for c in categories]
+
+        # 4. Extract Data with DB context
+        logger.info("Extracting data with DB context...")
+        data = extract_transaction_data(transcription, account_names, category_names)
         
-        # 4. Save Draft in Redis
+        # 5. Save Draft in Redis
         tx_id = str(uuid.uuid4())
         draft_dict = data.model_dump()
         draft_dict["raw_text"] = transcription
@@ -49,7 +64,7 @@ async def process_voice_task(ctx, chat_id: int, message_id: int, file_id: str):
         redis = await get_redis_pool()
         await redis.set(f"pending_tx:{tx_id}", json.dumps(draft_dict), ex=3600)
         
-        # 5. Build Inline Keyboards
+        # 6. Build Inline Keyboards
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="✅ Confirmar", callback_data=f"confirm_tx:{tx_id}"),
@@ -64,7 +79,7 @@ async def process_voice_task(ctx, chat_id: int, message_id: int, file_id: str):
             f"📊 <b>Tipo:</b> {data.type}\n"
             f"📝 <b>Concepto:</b> {data.description}\n"
             f"🏦 <b>Cuenta:</b> {data.account_name or 'Principal (Defecto)'}\n"
-            f"📁 <b>Categoría:</b> {data.category_name or 'General'}\n\n"
+            f"📁 <b>Categoría:</b> {data.category_name or 'Otros'}\n\n"
             f"¿Deseas confirmar el registro en la base de datos?"
         )
         
@@ -77,7 +92,7 @@ async def process_voice_task(ctx, chat_id: int, message_id: int, file_id: str):
         )
         
     except Exception as e:
-        logger.error(f"Error processing voice task: {e}")
+        logger.error(f"Error processing voice task: {e}", exc_info=True)
         await bot.edit_message_text(
             text=f"❌ Error al procesar la nota de voz: {str(e)}",
             chat_id=chat_id,

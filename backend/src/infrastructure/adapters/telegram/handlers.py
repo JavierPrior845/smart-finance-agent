@@ -78,7 +78,10 @@ async def confirm_transaction_handler(callback: CallbackQuery) -> None:
             account_id = None
             if draft.get("account_name"):
                 all_accounts = await acc_repo.get_all()
-                match = next((a for a in all_accounts if draft["account_name"].lower() in a.name.lower()), None)
+                target = draft["account_name"].lower()
+                match = next((a for a in all_accounts if a.name.lower() == target), None)
+                if not match:
+                    match = next((a for a in all_accounts if target in a.name.lower() or a.name.lower() in target), None)
                 if match:
                     account_id = match.id
                     
@@ -86,7 +89,10 @@ async def confirm_transaction_handler(callback: CallbackQuery) -> None:
             category_id = None
             if draft.get("category_name"):
                 all_categories = await cat_repo.get_all()
-                match = next((c for c in all_categories if draft["category_name"].lower() in c.name.lower()), None)
+                target = draft["category_name"].lower()
+                match = next((c for c in all_categories if c.name.lower() == target), None)
+                if not match:
+                    match = next((c for c in all_categories if target in c.name.lower() or c.name.lower() in target), None)
                 if match:
                     category_id = match.id
                     
@@ -107,15 +113,17 @@ async def confirm_transaction_handler(callback: CallbackQuery) -> None:
         
         if callback.message:
             account_str = "Cuenta Principal" if not account_id else draft.get("account_name")
+            category_str = "Otros" if not category_id else draft.get("category_name")
             await callback.message.edit_text(
                 f"✅ <b>Transacción Guardada Exitosamente</b>\n\n"
                 f"💰 <b>Importe:</b> {draft['amount']} {draft['currency']}\n"
                 f"📝 <b>Concepto:</b> {draft['description']}\n"
-                f"🏦 <b>Cuenta:</b> {account_str}\n\n"
+                f"🏦 <b>Cuenta:</b> {account_str}\n"
+                f"📁 <b>Categoría:</b> {category_str}\n\n"
                 f"<i>Registrado en la base de datos PostgreSQL.</i>",
                 parse_mode="HTML"
             )
             
     except Exception as e:
-        logger.error(f"Error saving transaction: {e}")
+        logger.error(f"Error saving transaction: {e}", exc_info=True)
         await callback.answer("❌ Error al guardar la transacción", show_alert=True)
