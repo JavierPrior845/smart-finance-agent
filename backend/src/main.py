@@ -25,11 +25,15 @@ async def lifespan(app: FastAPI):
     
     if bot_task:
         logger.info("Stopping Telegram Bot...")
-        bot_task.cancel()
+        await dp.stop_polling()
         try:
-            await bot_task
+            await asyncio.wait_for(bot_task, timeout=5.0)
+        except asyncio.TimeoutError:
+            bot_task.cancel()
         except asyncio.CancelledError:
             pass
+        except Exception as e:
+            logger.error(f"Error while stopping bot task: {e}")
         await bot.session.close()
 
 app = FastAPI(
