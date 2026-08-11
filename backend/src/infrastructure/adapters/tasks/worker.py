@@ -47,7 +47,7 @@ async def process_voice_task(ctx, chat_id: int, message_id: int, file_id: str):
         async with AsyncSessionLocal() as session:
             acc_repo = SQLAlchemyAccountRepository(session)
             cat_repo = SQLAlchemyCategoryRepository(session)
-            accounts = await acc_repo.get_all()
+            accounts = await acc_repo.get_all_active()
             categories = await cat_repo.get_all()
             account_names = [a.name for a in accounts]
             category_names = [c.name for c in categories]

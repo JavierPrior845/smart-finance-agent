@@ -77,7 +77,7 @@ async def confirm_transaction_handler(callback: CallbackQuery) -> None:
             # Resolve account_id by fuzzy name match if provided
             account_id = None
             if draft.get("account_name"):
-                all_accounts = await acc_repo.get_all()
+                all_accounts = await acc_repo.get_all_active()
                 target = draft["account_name"].lower()
                 match = next((a for a in all_accounts if a.name.lower() == target), None)
                 if not match:
