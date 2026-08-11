@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
     
     if bot:
         logger.info("Starting Telegram Bot Polling...")
-        bot_task = asyncio.create_task(dp.start_polling(bot))
+        bot_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
     else:
         logger.info("Telegram Bot will not start (no token provided).")
         
