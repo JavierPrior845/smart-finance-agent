@@ -2,6 +2,7 @@ from typing import Optional, Literal, List
 import instructor
 from openai import OpenAI
 from pydantic import BaseModel, Field
+from src.config import settings
 
 class TransactionExtraction(BaseModel):
     amount: float = Field(..., description="El coste o importe del gasto/ingreso en formato numérico")
@@ -13,7 +14,7 @@ class TransactionExtraction(BaseModel):
     date_str: Optional[str] = Field(None, description="Fecha expresada o mencionada (ej. 'hoy', 'ayer', 'el lunes pasado'). Dejar null si es hoy")
 
 # Configure Instructor with OpenAI client pointing to Ollama
-client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+client = OpenAI(base_url=settings.OLLAMA_URL, api_key="ollama")
 instructor_client = instructor.from_openai(client, mode=instructor.Mode.JSON)
 
 def extract_transaction_data(
@@ -41,7 +42,7 @@ def extract_transaction_data(
     )
 
     response = instructor_client.chat.completions.create(
-        model="qwen2.5-coder:1.5b",
+        model=settings.OLLAMA_MODEL,
         response_model=TransactionExtraction,
         messages=[
             {

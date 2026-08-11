@@ -15,10 +15,12 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_ALLOWED_USER_IDS: List[int] = []
 
-    # AI Credentials
+    # AI Credentials & Local LLM
     OPENAI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    OLLAMA_URL: str = "http://localhost:11434/v1"
+    OLLAMA_MODEL: str = "qwen2.5-coder:1.5b"
 
     # Financial Defaults
     DEFAULT_CURRENCY: str = "EUR"
