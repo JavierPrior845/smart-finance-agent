@@ -13,6 +13,7 @@ class CategoryORM(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    type: Mapped[str] = mapped_column(String(15), nullable=False, default="EXPENSE")
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
