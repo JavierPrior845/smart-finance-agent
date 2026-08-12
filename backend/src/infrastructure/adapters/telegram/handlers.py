@@ -65,6 +65,29 @@ async def text_message_handler(message: Message) -> None:
         message.text
     )
 
+@router.message(F.photo)
+async def photo_message_handler(message: Message) -> None:
+    """
+    Handles incoming photo messages (receipts/tickets), enqueues them for OCR and extraction.
+    """
+    if not message.photo:
+        return
+        
+    # Telegram sends multiple sizes, we take the largest one (last in the list)
+    file_id = message.photo[-1].file_id
+    
+    # 1. Send immediate response
+    processing_msg = await message.reply("🧾 <i>Analizando ticket con IA (OCR)...</i>", parse_mode="HTML")
+    
+    # 2. Enqueue task in ARQ
+    redis = await get_redis_pool()
+    await redis.enqueue_job(
+        "process_receipt_task", 
+        message.chat.id, 
+        processing_msg.message_id, 
+        file_id
+    )
+
 @router.callback_query(F.data.startswith("cancel_tx:"))
 async def cancel_transaction_handler(callback: CallbackQuery) -> None:
     tx_id = callback.data.split(":")[1]

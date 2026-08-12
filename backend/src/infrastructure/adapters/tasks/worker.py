@@ -166,8 +166,91 @@ async def process_text_task(ctx, chat_id: int, message_id: int, text_content: st
             message_id=message_id
         )
 
+async def process_receipt_task(ctx, chat_id: int, message_id: int, file_id: str):
+    logger.info(f"Processing receipt task for file {file_id}")
+    bot = ctx['bot']
+    
+    # 1. Download image
+    file_info = await bot.get_file(file_id)
+    file_path = f"/tmp/{file_id}.jpg"
+    
+    await bot.download_file(file_info.file_path, destination=file_path)
+    
+    try:
+        from src.infrastructure.adapters.ai.local_ocr import extract_text_from_image
+        
+        # 2. Extract Text via OCR
+        logger.info("Extracting text from image via OCR...")
+        ocr_text = extract_text_from_image(file_path)
+        logger.info(f"OCR Text: {ocr_text}")
+        
+        if not ocr_text or len(ocr_text.strip()) < 3:
+            raise ValueError("No se pudo extraer texto legible de la imagen.")
+            
+        # 3. Fetch Accounts & Categories from DB to condition LLM
+        account_names = []
+        category_names = []
+        async with AsyncSessionLocal() as session:
+            acc_repo = SQLAlchemyAccountRepository(session)
+            cat_repo = SQLAlchemyCategoryRepository(session)
+            accounts = await acc_repo.get_all_active()
+            categories = await cat_repo.get_all()
+            account_names = [a.name for a in accounts]
+            category_names = [c.name for c in categories]
+
+        # 4. Extract Data with DB context
+        logger.info("Extracting structured data from OCR text...")
+        data = extract_transaction_data(ocr_text, account_names, category_names)
+        
+        # 5. Save Draft in Redis
+        tx_id = str(uuid.uuid4())
+        draft_dict = data.model_dump()
+        draft_dict["raw_text"] = ocr_text[:200] + "..." if len(ocr_text) > 200 else ocr_text
+        
+        redis = await get_redis_pool()
+        await redis.set(f"pending_tx:{tx_id}", json.dumps(draft_dict), ex=3600)
+        
+        # 6. Build Inline Keyboards
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Confirmar", callback_data=f"confirm_tx:{tx_id}"),
+                InlineKeyboardButton(text="❌ Cancelar", callback_data=f"cancel_tx:{tx_id}")
+            ]
+        ])
+        
+        response_text = (
+            f"🧾 <b>Ticket procesado:</b>\n\n"
+            f"📌 <b>Borrador de Transacción:</b>\n"
+            f"💰 <b>Importe:</b> {data.amount} {data.currency}\n"
+            f"📊 <b>Tipo:</b> {data.type}\n"
+            f"📝 <b>Concepto:</b> {data.description}\n"
+            f"🏦 <b>Cuenta:</b> {data.account_name or 'Principal (Defecto)'}\n"
+            f"📁 <b>Categoría:</b> {data.category_name or 'Otros'}\n\n"
+            f"¿Deseas confirmar el registro en la base de datos?"
+        )
+        
+        await bot.edit_message_text(
+            text=response_text,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing receipt task: {e}", exc_info=True)
+        await bot.edit_message_text(
+            text=f"❌ Error al procesar el ticket: {str(e)}",
+            chat_id=chat_id,
+            message_id=message_id
+        )
+    finally:
+        # Cleanup
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
 class WorkerSettings:
-    functions = [process_voice_task, process_text_task]
+    functions = [process_voice_task, process_text_task, process_receipt_task]
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     on_startup = startup
     on_shutdown = shutdown
