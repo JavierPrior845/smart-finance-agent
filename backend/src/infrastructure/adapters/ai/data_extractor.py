@@ -37,7 +37,8 @@ def extract_transaction_data(
         "REGLAS ESTRUCTURALES:\n"
         "1. `description`: Extrae SOLO el concepto o comercio en 1 a 3 palabras clave (ej. 'Gasté 18 euros en cine' -> 'Cine', 'Pago de 50€ en gasolina' -> 'Gasolina'). Elimina la paja y los verbos de la frase.\n"
         "2. `account_name`: Solo asigna una cuenta si el usuario la menciona explícitamente y está en la lista. Si no, pon null.\n"
-        "3. `category_name`: Revisa la lista de categorías válidas. Asigna una categoría ÚNICAMENTE si existe una relación directa y obvia con el concepto. Si ninguna categoría se ajusta claramente (ej. 'Cine' y las categorías son 'Alimentación' y 'Transporte'), debes poner null OBLIGATORIAMENTE."
+        "3. `category_name`: Revisa la lista de categorías válidas. Asigna una categoría ÚNICAMENTE si existe una relación directa y obvia con el concepto. Si ninguna categoría se ajusta claramente (ej. 'Cine' y las categorías son 'Alimentación' y 'Transporte'), debes poner null OBLIGATORIAMENTE.\n"
+        "4. TICKET OCR: Si el texto parece ser un ticket escaneado con muchos productos, extrae como `amount` ÚNICAMENTE el importe total a pagar (busca palabras como TOTAL, IMPORTE o revisa el valor final más lógico). Extrae como `description` el nombre del comercio."
     )
 
     response = instructor_client.chat.completions.create(
