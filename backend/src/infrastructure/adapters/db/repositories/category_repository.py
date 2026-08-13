@@ -15,6 +15,7 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
         return Category(
             id=orm.id,
             name=orm.name,
+            type=orm.type,
             parent_id=orm.parent_id,
             icon=orm.icon,
             color=orm.color,
@@ -28,6 +29,7 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
         return CategoryORM(
             id=domain.id,
             name=domain.name,
+            type=domain.type,
             parent_id=domain.parent_id,
             icon=domain.icon,
             color=domain.color,
@@ -59,6 +61,7 @@ class SQLAlchemyCategoryRepository(CategoryRepository):
         orm = await self.session.get(CategoryORM, category.id)
         if orm:
             orm.name = category.name
+            orm.type = category.type
             orm.parent_id = category.parent_id
             orm.icon = category.icon
             orm.color = category.color

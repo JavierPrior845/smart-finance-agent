@@ -33,3 +33,20 @@ class TransactionResponse(TransactionCreate):
 class PaginatedTransactionsResponse(BaseModel):
     items: List[TransactionResponse]
     total: int
+
+class PendingTransactionResponse(BaseModel):
+    id: str
+    amount: float
+    currency: str
+    type: str
+    description: str
+    account_name: Optional[str] = None
+    category_name: Optional[str] = None
+    raw_text: Optional[str] = None
+
+class PendingTransactionConfirm(BaseModel):
+    amount: float
+    type: TransactionType
+    description: str
+    account_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None

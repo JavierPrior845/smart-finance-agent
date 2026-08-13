@@ -17,3 +17,11 @@ api_router.include_router(transactions_router)
 api_router.include_router(analytics_router)
 api_router.include_router(settings_router)
 api_router.include_router(investments_router)
+
+@api_router.get("/status")
+async def status_check():
+    return {
+        "api_version": "v1",
+        "status": "active"
+    }
+

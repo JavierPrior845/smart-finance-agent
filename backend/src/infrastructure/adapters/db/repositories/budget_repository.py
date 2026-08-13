@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, case, or_
 import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
@@ -65,14 +65,25 @@ class SQLAlchemyBudgetRepository(BudgetRepository):
         next_year = year if month < 12 else year + 1
         end_date = datetime(next_year, next_month, 1, tzinfo=timezone.utc)
 
-        # Build subquery to get total spent per category in that month
-        # Notice we take abs(amount) because expenses are stored as negative in DB (as we set up before)
+        # Build subquery to get total spent/earned per category in that month
+        # Notice we take abs(amount) for expenses because they are stored as negative in DB,
+        # but for income we take positive amount.
         spent_subq = select(
             TransactionORM.category_id,
-            func.sum(func.abs(TransactionORM.amount)).label("spent")
+            func.sum(
+                case(
+                    (CategoryORM.type == 'INCOME', TransactionORM.amount),
+                    else_=func.abs(TransactionORM.amount)
+                )
+            ).label("spent")
+        ).join(
+            CategoryORM, TransactionORM.category_id == CategoryORM.id
         ).where(
             and_(
-                TransactionORM.type == 'EXPENSE',
+                or_(
+                    and_(CategoryORM.type == 'INCOME', TransactionORM.type == 'INCOME'),
+                    and_(CategoryORM.type == 'EXPENSE', TransactionORM.type == 'EXPENSE')
+                ),
                 TransactionORM.transaction_date >= start_date,
                 TransactionORM.transaction_date < end_date,
                 TransactionORM.category_id.isnot(None)
@@ -100,6 +111,7 @@ class SQLAlchemyBudgetRepository(BudgetRepository):
             func.cast(year, sqlalchemy.Integer).label("period_year"),
             CategoryORM.name.label("category_name"),
             CategoryORM.color.label("category_color"),
+            CategoryORM.type.label("category_type"),
             func.coalesce(spent_subq.c.spent, 0).label("spent")
         ).select_from(CategoryORM).outerjoin(
             budget_subq, CategoryORM.id == budget_subq.c.category_id
