@@ -12,6 +12,13 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         self.session = session
 
     def _to_domain(self, orm: TransactionORM) -> Transaction:
+        # Convert numpy array or Vector to list of floats if needed
+        emb = None
+        if orm.embedding is not None:
+            if hasattr(orm.embedding, "tolist"):
+                emb = orm.embedding.tolist()
+            else:
+                emb = list(orm.embedding)
         return Transaction(
             id=orm.id,
             account_id=orm.account_id,
@@ -27,6 +34,7 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
             is_recurring=orm.is_recurring,
             is_anomalous=orm.is_anomalous,
             transaction_date=orm.transaction_date,
+            embedding=emb,
             created_at=orm.created_at
         )
 
@@ -46,6 +54,7 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
             is_recurring=domain.is_recurring,
             is_anomalous=domain.is_anomalous,
             transaction_date=domain.transaction_date,
+            embedding=domain.embedding,
             created_at=domain.created_at
         )
 
@@ -114,3 +123,17 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         if orm:
             await self.session.delete(orm)
             await self.session.flush()
+
+    async def get_nearest_neighbors(self, query_embedding: List[float], limit: int = 5, threshold: float = 0.88) -> List[Transaction]:
+        distance_threshold = 1.0 - threshold
+        stmt = (
+            select(TransactionORM)
+            .where(
+                (TransactionORM.embedding.cosine_distance(query_embedding) <= distance_threshold) &
+                (TransactionORM.status == "confirmed")
+            )
+            .order_by(TransactionORM.embedding.cosine_distance(query_embedding).asc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [self._to_domain(orm) for orm in result.scalars().all()]

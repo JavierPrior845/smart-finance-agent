@@ -20,5 +20,5 @@ class Transaction(BaseModel):
     is_recurring: bool = False
     is_anomalous: bool = False
     transaction_date: datetime
-    # embedding omitted from domain for simplicity unless needed for distance calc
+    embedding: list[float] | None = None
     created_at: datetime | None = None

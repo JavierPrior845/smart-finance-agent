@@ -35,3 +35,7 @@ class TransactionRepository(ABC):
     @abstractmethod
     async def delete(self, transaction_id: UUID) -> None:
         pass
+
+    @abstractmethod
+    async def get_nearest_neighbors(self, query_embedding: List[float], limit: int = 5, threshold: float = 0.88) -> List[Transaction]:
+        pass

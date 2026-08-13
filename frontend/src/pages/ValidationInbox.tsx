@@ -115,13 +115,13 @@ export default function ValidationInbox() {
     if (!confirm("¿Seguro que deseas descartar este borrador?")) return;
 
     setActioningId(id);
-    try {
+        try {
       await api.delete(`/transactions/pending/${id}`);
       toast.success("Borrador descartado");
       setPendingTransactions(prev => prev.filter(t => t.id !== id));
     } catch (error) {
       console.error("Error discarding transaction", error);
-      toast.toast("Error al descartar la transacción");
+      toast.error("Error al descartar la transacción");
     } finally {
       setActioningId(null);
     }

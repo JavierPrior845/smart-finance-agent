@@ -70,6 +70,14 @@ class CreateTransactionUseCase:
         await self.account_repo.update(account)
 
         # 4. Crear y guardar la transacción
+        from src.infrastructure.adapters.ai.embeddings import LocalEmbedder
+        embedding = None
+        if description:
+            try:
+                embedding = LocalEmbedder.get_embedding(description)
+            except Exception:
+                pass
+
         transaction = Transaction(
             account_id=resolved_account_id,
             destination_account_id=destination_account_id,
@@ -78,6 +86,7 @@ class CreateTransactionUseCase:
             description=description,
             category_id=category_id,
             source=source,
-            transaction_date=transaction_date
+            transaction_date=transaction_date,
+            embedding=embedding
         )
         return await self.transaction_repo.save(transaction)
