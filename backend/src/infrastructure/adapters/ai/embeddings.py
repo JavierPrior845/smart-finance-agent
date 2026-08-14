@@ -1,4 +1,5 @@
 from sentence_transformers import SentenceTransformer
+from src.config import settings
 
 class LocalEmbedder:
     _model = None
@@ -7,7 +8,7 @@ class LocalEmbedder:
     def get_model(cls):
         if cls._model is None:
             # paraphrase-multilingual-MiniLM-L12-v2 yields 384 dimensions
-            cls._model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            cls._model = SentenceTransformer(settings.EMBEDDING_MODEL)
         return cls._model
 
     @classmethod

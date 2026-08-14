@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OLLAMA_URL: str = "http://localhost:11434/v1"
     OLLAMA_MODEL: str = "qwen2.5-coder:1.5b"
+    EMBEDDING_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
 
     # Financial Defaults
     DEFAULT_CURRENCY: str = "EUR"

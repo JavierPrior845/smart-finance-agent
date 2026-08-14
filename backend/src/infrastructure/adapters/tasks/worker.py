@@ -13,8 +13,46 @@ from src.infrastructure.adapters.redis.client import get_redis_pool
 from src.infrastructure.adapters.db.session import AsyncSessionLocal
 from src.infrastructure.adapters.db.repositories.account_repository import SQLAlchemyAccountRepository
 from src.infrastructure.adapters.db.repositories.category_repository import SQLAlchemyCategoryRepository
+from src.infrastructure.adapters.db.repositories.merchant_rule_repository import SQLAlchemyMerchantRuleRepository
+from src.infrastructure.adapters.db.repositories.transaction_repository import SQLAlchemyTransactionRepository
+from src.infrastructure.adapters.ai.vector_search import VectorSearchAdapter
+from src.application.services.categorization_service import (
+    CategorizationPipeline,
+    RegexCategorizationStep,
+    VectorCategorizationStep,
+)
 
 logger = logging.getLogger(__name__)
+
+async def run_categorization_and_extraction(session, raw_text: str, account_names: list[str], category_names: list[str]):
+    # 1. Run pipeline
+    rule_repo = SQLAlchemyMerchantRuleRepository(session)
+    tx_repo = SQLAlchemyTransactionRepository(session)
+    cat_repo = SQLAlchemyCategoryRepository(session)
+    vector_search_adapter = VectorSearchAdapter(tx_repo)
+    
+    pipeline = CategorizationPipeline([
+        RegexCategorizationStep(rule_repo),
+        VectorCategorizationStep(vector_search_adapter)
+    ])
+    
+    category_id = await pipeline.categorize(raw_text)
+    resolved_category_name = None
+    if category_id:
+        cat = await cat_repo.get_by_id(category_id)
+        if cat:
+            resolved_category_name = cat.name
+            
+    # 2. Extract transaction data
+    if resolved_category_name:
+        logger.info(f"Category resolved by pipeline: {resolved_category_name}")
+        data = extract_transaction_data(raw_text, account_names, None)
+        data.category_name = resolved_category_name
+    else:
+        logger.info("Category not resolved by pipeline, falling back to LLM")
+        data = extract_transaction_data(raw_text, account_names, category_names)
+        
+    return data
 
 async def startup(ctx):
     logger.info("Worker startup...")
@@ -52,9 +90,9 @@ async def process_voice_task(ctx, chat_id: int, message_id: int, file_id: str):
             account_names = [a.name for a in accounts]
             category_names = [c.name for c in categories]
 
-        # 4. Extract Data with DB context
-        logger.info("Extracting data with DB context...")
-        data = extract_transaction_data(transcription, account_names, category_names)
+            # 4. Extract Data with DB context
+            logger.info("Extracting data with DB context and hybrid categorization...")
+            data = await run_categorization_and_extraction(session, transcription, account_names, category_names)
         
         # 5. Save Draft in Redis
         tx_id = str(uuid.uuid4())
@@ -119,9 +157,9 @@ async def process_text_task(ctx, chat_id: int, message_id: int, text_content: st
             account_names = [a.name for a in accounts]
             category_names = [c.name for c in categories]
 
-        # Extract Data with DB context
-        logger.info("Extracting text data with DB context...")
-        data = extract_transaction_data(text_content, account_names, category_names)
+            # Extract Data with DB context
+            logger.info("Extracting text data with DB context and hybrid categorization...")
+            data = await run_categorization_and_extraction(session, text_content, account_names, category_names)
         
         # Save Draft in Redis
         tx_id = str(uuid.uuid4())
@@ -198,9 +236,9 @@ async def process_receipt_task(ctx, chat_id: int, message_id: int, file_id: str)
             account_names = [a.name for a in accounts]
             category_names = [c.name for c in categories]
 
-        # 4. Extract Data with DB context
-        logger.info("Extracting structured data from OCR text...")
-        data = extract_transaction_data(ocr_text, account_names, category_names)
+            # 4. Extract Data with DB context
+            logger.info("Extracting structured data from OCR text and hybrid categorization...")
+            data = await run_categorization_and_extraction(session, ocr_text, account_names, category_names)
         
         # 5. Save Draft in Redis
         tx_id = str(uuid.uuid4())
