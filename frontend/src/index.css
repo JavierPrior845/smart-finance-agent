@@ -153,11 +153,14 @@ h1, h2, h3, h4 {
   font-size: 1rem;
 }
 
-/* Global Select Options Styling */
+/* Global Select Options Styling - Safe light theme for options to ensure compatibility with GTK/native popups */
 select option {
-  background-color: #14141f;
-  color: #ffffff;
-  padding: 12px;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+select option:disabled {
+  color: #9ca3af !important;
 }
 
 /* Custom premium select styling to override native browser styles */
@@ -174,7 +177,7 @@ select {
 
 /* Style default number input spin buttons to hide them */
 input[type="number"] {
-  -moz-appearance: textfield !important;
+  appearance: textfield !important;
 }
 
 input::-webkit-outer-spin-button,
