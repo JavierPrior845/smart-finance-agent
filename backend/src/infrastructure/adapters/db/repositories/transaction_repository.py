@@ -137,3 +137,13 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         )
         result = await self.session.execute(stmt)
         return [self._to_domain(orm) for orm in result.scalars().all()]
+
+    async def get_anomalous(self, limit: int = 50) -> List[Transaction]:
+        stmt = (
+            select(TransactionORM)
+            .where(TransactionORM.is_anomalous == True)
+            .order_by(TransactionORM.transaction_date.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [self._to_domain(orm) for orm in result.scalars().all()]

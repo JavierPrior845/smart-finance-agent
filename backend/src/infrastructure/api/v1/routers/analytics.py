@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
+from typing import List
 
 from src.infrastructure.adapters.db.session import get_db_session
 from src.infrastructure.adapters.db.repositories.analytics_repository import AnalyticsRepository
 from src.infrastructure.api.v1.schemas.analytics import KPIsResponse, DistributionResponse, CashflowResponse, PacingResponse, NetWorthHistoryResponse
+from src.infrastructure.api.dependencies import get_transaction_repo
+from src.application.ports.transaction_repository import TransactionRepository
+from src.infrastructure.api.v1.schemas.transaction import TransactionResponse
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -39,3 +43,11 @@ async def get_dashboard_networth(db: AsyncSession = Depends(get_db_session)):
     repo = AnalyticsRepository(db)
     data = await repo.get_networth_history(months=6)
     return NetWorthHistoryResponse(data=data)
+
+@router.get("/anomalies", response_model=List[TransactionResponse])
+async def get_dashboard_anomalies(
+    limit: int = Query(10, ge=1, le=100),
+    repo: TransactionRepository = Depends(get_transaction_repo)
+):
+    """Retrieve recent anomalous transactions."""
+    return await repo.get_anomalous(limit=limit)

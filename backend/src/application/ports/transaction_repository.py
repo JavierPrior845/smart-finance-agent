@@ -39,3 +39,7 @@ class TransactionRepository(ABC):
     @abstractmethod
     async def get_nearest_neighbors(self, query_embedding: List[float], limit: int = 5, threshold: float = 0.88) -> List[Transaction]:
         pass
+
+    @abstractmethod
+    async def get_anomalous(self, limit: int = 50) -> List[Transaction]:
+        pass

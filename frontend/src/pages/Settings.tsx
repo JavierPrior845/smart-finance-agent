@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileUp, Key, Target, Loader2, Save, Trash2, Plus, X } from 'lucide-react';
+import { Key, Target, Loader2, Save, Trash2, Plus, X } from 'lucide-react';
 import api from '../services/api';
 import './Pages.css';
 
@@ -121,14 +121,14 @@ export default function Settings() {
               <div className="input-group">
                 <label>Tasa de Ahorro Objetivo (%)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <input 
-                    type="number" 
-                    value={targetSavingsRate} 
-                    onChange={(e) => setTargetSavingsRate(e.target.value)} 
+                  <input
+                    type="number"
+                    value={targetSavingsRate}
+                    onChange={(e) => setTargetSavingsRate(e.target.value)}
                     style={{ flex: 1 }}
                   />
-                  <button 
-                    className="glass-button primary" 
+                  <button
+                    className="glass-button primary"
                     onClick={handleSaveSavingsRate}
                     disabled={saving}
                   >
@@ -140,27 +140,6 @@ export default function Settings() {
             </div>
           )}
         </div>
-
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileUp size={20} /> Importación Manual
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>
-            Arrastra aquí tus archivos CSV del banco o facturas en PDF para procesarlos con IA.
-          </p>
-          <div style={{
-            border: '2px dashed var(--border-glass)',
-            borderRadius: '12px',
-            padding: '40px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            background: 'rgba(255,255,255,0.02)'
-          }}>
-            <FileUp size={32} style={{ color: 'var(--color-primary)', marginBottom: '12px' }} />
-            <p><strong>Haz clic o arrastra un archivo</strong></p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>CSV, PDF, JPG admitidos</p>
-          </div>
-        </div>
       </div>
 
       <div className="glass-panel" style={{ padding: '24px' }}>
@@ -170,7 +149,7 @@ export default function Settings() {
             <Plus size={18} style={{ marginRight: '6px' }} /> Nueva Regla
           </button>
         </div>
-        
+
         {rulesLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
             <Loader2 className="spin" size={24} />
@@ -195,9 +174,9 @@ export default function Settings() {
                     <tr key={rule.id}>
                       <td><code>{rule.pattern}</code></td>
                       <td>
-                        <span 
-                          className="cat-badge" 
-                          style={{ 
+                        <span
+                          className="cat-badge"
+                          style={{
                             backgroundColor: category?.color ? `${category.color}33` : 'rgba(255,255,255,0.1)',
                             color: category?.color || '#fff',
                             border: `1px solid ${category?.color || 'rgba(255,255,255,0.2)'}`
@@ -208,14 +187,14 @@ export default function Settings() {
                       </td>
                       <td>{rule.priority}</td>
                       <td style={{ textAlign: 'right' }}>
-                        <button 
+                        <button
                           onClick={() => handleDeleteRule(rule.id)}
-                          style={{ 
-                            background: 'transparent', 
-                            border: 'none', 
-                            color: 'var(--color-danger)', 
-                            cursor: 'pointer', 
-                            opacity: 0.8 
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-danger)',
+                            cursor: 'pointer',
+                            opacity: 0.8
                           }}
                           title="Eliminar Regla"
                         >
@@ -246,12 +225,12 @@ export default function Settings() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleCreateRule} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="input-group">
                 <label>Patrón de Búsqueda (Texto o Regex)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder="Ej. MERCADONA o Uber.*"
                   value={ruleData.pattern}
@@ -262,9 +241,9 @@ export default function Settings() {
 
               <div className="input-group">
                 <label>Categoría a Asignar</label>
-                <select 
+                <select
                   required
-                  value={ruleData.category_id} 
+                  value={ruleData.category_id}
                   onChange={e => setRuleData({ ...ruleData, category_id: e.target.value })}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
@@ -277,11 +256,11 @@ export default function Settings() {
 
               <div className="input-group">
                 <label>Prioridad (Las prioridades más altas se ejecutan primero)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="1"
                   required
-                  value={ruleData.priority} 
+                  value={ruleData.priority}
                   onChange={e => setRuleData({ ...ruleData, priority: e.target.value })}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
