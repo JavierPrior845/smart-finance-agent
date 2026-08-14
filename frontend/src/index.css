@@ -152,3 +152,9 @@ h1, h2, h3, h4 {
   color: var(--text-secondary);
   font-size: 1rem;
 }
+
+/* Global Select Options Styling */
+select option {
+  background-color: #14141f;
+  color: #ffffff;
+}
