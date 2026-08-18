@@ -89,3 +89,7 @@ watchfiles==1.2.0
 websockets==17.0.1
 yarl==1.24.5
 yfinance==1.5.2
+pytesseract
+Pillow
+sentence-transformers==2.7.0
+

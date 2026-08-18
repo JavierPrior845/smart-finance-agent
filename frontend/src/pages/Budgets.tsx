@@ -16,7 +16,7 @@ export default function Budgets() {
   const currentYear = new Date().getFullYear();
 
   const [overrideData, setOverrideData] = useState({ category_id: '', monthly_limit: '' });
-  const [categoryData, setCategoryData] = useState({ name: '', color: '#3b82f6', default_budget_limit: '' });
+  const [categoryData, setCategoryData] = useState({ name: '', type: 'EXPENSE', color: '#3b82f6', default_budget_limit: '' });
 
   const fetchData = async () => {
     try {
@@ -66,13 +66,14 @@ export default function Budgets() {
     try {
       await api.post('/categories', {
         name: categoryData.name,
+        type: categoryData.type,
         color: categoryData.color,
         is_budgetable: true,
         default_budget_limit: categoryData.default_budget_limit ? parseFloat(categoryData.default_budget_limit) : null,
         is_active: true
       });
       setShowCategoryModal(false);
-      setCategoryData({ name: '', color: '#3b82f6', default_budget_limit: '' });
+      setCategoryData({ name: '', type: 'EXPENSE', color: '#3b82f6', default_budget_limit: '' });
       await fetchData();
     } catch (error) {
       console.error("Error creating category", error);
@@ -125,21 +126,34 @@ export default function Budgets() {
               budgets.map(budget => {
                 const percent = Math.min((budget.spent / budget.monthly_limit) * 100, 100);
                 const isOver = budget.spent > budget.monthly_limit;
+                const isIncome = budget.category_type === 'INCOME';
                 const color = budget.category_color || 'var(--color-primary)';
                 
                 return (
                   <div key={budget.id} className="budget-item">
                     <div className="budget-info">
                       <h4>{budget.category_name}</h4>
-                      <span>€{budget.spent.toFixed(2)} / €{budget.monthly_limit.toFixed(2)}</span>
+                      <span>
+                        {isIncome ? 'Ganado' : 'Gastado'}: €{budget.spent.toFixed(2)} / €{budget.monthly_limit.toFixed(2)}
+                      </span>
                     </div>
                     <div className="progress-bg">
                       <div 
                         className="progress-fill" 
-                        style={{ width: `${percent}%`, background: isOver ? 'var(--color-danger)' : color }}
+                        style={{ 
+                          width: `${percent}%`, 
+                          background: isIncome 
+                            ? (budget.spent >= budget.monthly_limit ? '#10b981' : '#3b82f6')
+                            : (isOver ? 'var(--color-danger)' : color) 
+                        }}
                       />
                     </div>
-                    {isOver && <span className="budget-alert">¡Límite excedido!</span>}
+                    {isIncome && budget.spent >= budget.monthly_limit && (
+                      <span className="budget-alert" style={{ color: '#10b981' }}>¡Objetivo cumplido! 🎉</span>
+                    )}
+                    {!isIncome && isOver && (
+                      <span className="budget-alert">¡Límite excedido!</span>
+                    )}
                   </div>
                 );
               })
@@ -158,7 +172,10 @@ export default function Budgets() {
                   <div>
                     <h4 style={{ margin: 0 }}>{cat.name}</h4>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {cat.default_budget_limit ? `Límite Base: €${cat.default_budget_limit}` : 'Sin límite genérico'}
+                      {cat.type === 'INCOME'
+                        ? (cat.default_budget_limit ? `Objetivo Base: €${cat.default_budget_limit}` : 'Sin objetivo genérico')
+                        : (cat.default_budget_limit ? `Límite Base: €${cat.default_budget_limit}` : 'Sin límite genérico')
+                      }
                     </span>
                   </div>
                 </div>
@@ -260,13 +277,25 @@ export default function Budgets() {
               </div>
 
               <div className="input-group">
-                <label>Límite Genérico al Mes (€) - Opcional</label>
+                <label>Tipo de Categoría</label>
+                <select 
+                  value={categoryData.type} 
+                  onChange={e => setCategoryData({...categoryData, type: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="EXPENSE">Gasto (Límite)</option>
+                  <option value="INCOME">Ingreso (Objetivo/Meta)</option>
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label>{categoryData.type === 'INCOME' ? 'Objetivo Genérico al Mes (€) - Opcional' : 'Límite Genérico al Mes (€) - Opcional'}</label>
                 <input 
                   type="number" 
                   step="0.01"
                   value={categoryData.default_budget_limit} 
                   onChange={e => setCategoryData({...categoryData, default_budget_limit: e.target.value})}
-                  placeholder="Ej. 50"
+                  placeholder={categoryData.type === 'INCOME' ? "Ej. 1000" : "Ej. 50"}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
               </div>

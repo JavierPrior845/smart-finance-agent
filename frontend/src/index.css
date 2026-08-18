@@ -152,3 +152,40 @@ h1, h2, h3, h4 {
   color: var(--text-secondary);
   font-size: 1rem;
 }
+
+/* Global Select Options Styling */
+select option {
+  background-color: #14141e !important;
+  color: var(--text-primary) !important;
+  padding: 12px;
+}
+
+/* Custom premium select styling to override native browser styles */
+select {
+  appearance: none !important;
+  background-color: rgba(20, 20, 30, 0.8) !important;
+  border: 1px solid var(--border-glass) !important;
+  color: var(--text-primary) !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 16px !important;
+  padding-right: 40px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:focus {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+}
+
+/* Style default number input spin buttons to hide them */
+input[type="number"] {
+  appearance: textfield !important;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  appearance: none !important;
+  margin: 0 !important;
+}

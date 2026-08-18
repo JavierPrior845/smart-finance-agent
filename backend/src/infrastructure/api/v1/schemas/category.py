@@ -1,9 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 from uuid import UUID
 from pydantic import BaseModel
 
 class CategoryCreate(BaseModel):
     name: str
+    type: Literal['EXPENSE', 'INCOME'] = 'EXPENSE'
     parent_id: Optional[UUID] = None
     icon: Optional[str] = None
     color: Optional[str] = None
@@ -13,6 +14,7 @@ class CategoryCreate(BaseModel):
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
+    type: Optional[Literal['EXPENSE', 'INCOME']] = None
     parent_id: Optional[UUID] = None
     icon: Optional[str] = None
     color: Optional[str] = None

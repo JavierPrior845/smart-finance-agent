@@ -34,11 +34,19 @@ class MockTransactionRepository:
         self.db[transaction.id] = transaction
         return transaction
 
+class MockCategoryRepository:
+    def __init__(self):
+        self.db = {}
+
+    async def get_all(self) -> list:
+        return list(self.db.values())
+
 @pytest.mark.asyncio
 async def test_create_expense_deducts_balance():
     account_repo = MockAccountRepository()
     transaction_repo = MockTransactionRepository()
-    use_case = CreateTransactionUseCase(transaction_repo, account_repo)
+    category_repo = MockCategoryRepository()
+    use_case = CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
     
     # Setup account
     account = Account(name="Test", account_type="BANK", initial_balance=100.0, current_balance=100.0)
@@ -56,7 +64,7 @@ async def test_create_expense_deducts_balance():
     
     # Assert transaction created
     assert txn.id in transaction_repo.db
-    assert txn.amount == 20.0
+    assert txn.amount == -20.0
     
     # Assert balance deducted
     updated_acc = await account_repo.get_by_id(account.id)
@@ -66,7 +74,8 @@ async def test_create_expense_deducts_balance():
 async def test_create_transfer_adjusts_both_balances():
     account_repo = MockAccountRepository()
     transaction_repo = MockTransactionRepository()
-    use_case = CreateTransactionUseCase(transaction_repo, account_repo)
+    category_repo = MockCategoryRepository()
+    use_case = CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
     
     acc_from = Account(name="From", account_type="BANK", current_balance=100.0)
     acc_to = Account(name="To", account_type="BANK", current_balance=50.0)

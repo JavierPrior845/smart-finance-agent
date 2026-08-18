@@ -69,7 +69,25 @@ class CreateTransactionUseCase:
         # Guardar cambios en la cuenta (Note: in a real implementation, Unit of Work ensures this is atomic)
         await self.account_repo.update(account)
 
+        # 3.5. Detect anomalies using BudgetAnomalyDetector for EXPENSE transactions
+        is_anomalous = False
+        if transaction_type == 'EXPENSE' and category_id:
+            try:
+                from src.application.services.anomaly_detector import BudgetAnomalyDetector
+                detector = BudgetAnomalyDetector(self.transaction_repo)
+                is_anomalous, _ = await detector.evaluate(category_id, abs_amount)
+            except Exception:
+                pass
+
         # 4. Crear y guardar la transacción
+        from src.infrastructure.adapters.ai.embeddings import LocalEmbedder
+        embedding = None
+        if description:
+            try:
+                embedding = LocalEmbedder.get_embedding(description)
+            except Exception:
+                pass
+
         transaction = Transaction(
             account_id=resolved_account_id,
             destination_account_id=destination_account_id,
@@ -78,6 +96,8 @@ class CreateTransactionUseCase:
             description=description,
             category_id=category_id,
             source=source,
-            transaction_date=transaction_date
+            is_anomalous=is_anomalous,
+            transaction_date=transaction_date,
+            embedding=embedding
         )
         return await self.transaction_repo.save(transaction)

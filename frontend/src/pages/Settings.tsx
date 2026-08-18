@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileUp, Key, Target, Loader2, Save } from 'lucide-react';
+import { Key, Target, Loader2, Save, Trash2, Plus, X } from 'lucide-react';
 import api from '../services/api';
 import './Pages.css';
 
@@ -8,18 +8,33 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // States for Merchant Rules
+  const [rules, setRules] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [ruleData, setRuleData] = useState({ pattern: '', category_id: '', priority: '1' });
+  const [creatingRule, setCreatingRule] = useState(false);
+
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get('/settings/target_savings_rate');
-        setTargetSavingsRate(res.data.value);
+        const [settingsRes, rulesRes, categoriesRes] = await Promise.all([
+          api.get('/settings/target_savings_rate'),
+          api.get('/settings/merchant-rules'),
+          api.get('/categories')
+        ]);
+        setTargetSavingsRate(settingsRes.data.value);
+        setRules(rulesRes.data);
+        setCategories(categoriesRes.data);
       } catch (err) {
-        console.error("No se pudo cargar la tasa de ahorro objetivo", err);
+        console.error("Error al cargar datos de configuración", err);
       } finally {
         setLoading(false);
+        setRulesLoading(false);
       }
     };
-    fetchSettings();
+    fetchData();
   }, []);
 
   const handleSaveSavingsRate = async () => {
@@ -29,11 +44,40 @@ export default function Settings() {
         value: targetSavingsRate,
         description: "Tasa de ahorro objetivo (%)"
       });
-      // Podríamos mostrar un toast de éxito aquí
     } catch (err) {
       console.error("Error al guardar la tasa de ahorro", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ruleData.pattern || !ruleData.category_id) return;
+    setCreatingRule(true);
+    try {
+      const res = await api.post('/settings/merchant-rules', {
+        pattern: ruleData.pattern,
+        category_id: ruleData.category_id,
+        priority: parseInt(ruleData.priority) || 1
+      });
+      setRules([res.data, ...rules]);
+      setRuleData({ pattern: '', category_id: '', priority: '1' });
+      setShowRuleModal(false);
+    } catch (err) {
+      console.error("Error al crear regla de comercio", err);
+    } finally {
+      setCreatingRule(false);
+    }
+  };
+
+  const handleDeleteRule = async (id: string) => {
+    if (!confirm("¿Seguro que quieres eliminar esta regla de categorización?")) return;
+    try {
+      await api.delete(`/settings/merchant-rules/${id}`);
+      setRules(rules.filter(r => r.id !== id));
+    } catch (err) {
+      console.error("Error al eliminar la regla", err);
     }
   };
 
@@ -77,14 +121,14 @@ export default function Settings() {
               <div className="input-group">
                 <label>Tasa de Ahorro Objetivo (%)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <input 
-                    type="number" 
-                    value={targetSavingsRate} 
-                    onChange={(e) => setTargetSavingsRate(e.target.value)} 
+                  <input
+                    type="number"
+                    value={targetSavingsRate}
+                    onChange={(e) => setTargetSavingsRate(e.target.value)}
                     style={{ flex: 1 }}
                   />
-                  <button 
-                    className="glass-button primary" 
+                  <button
+                    className="glass-button primary"
                     onClick={handleSaveSavingsRate}
                     disabled={saving}
                   >
@@ -96,64 +140,139 @@ export default function Settings() {
             </div>
           )}
         </div>
-
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileUp size={20} /> Importación Manual
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>
-            Arrastra aquí tus archivos CSV del banco o facturas en PDF para procesarlos con IA.
-          </p>
-          <div style={{
-            border: '2px dashed var(--border-glass)',
-            borderRadius: '12px',
-            padding: '40px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            background: 'rgba(255,255,255,0.02)'
-          }}>
-            <FileUp size={32} style={{ color: 'var(--color-primary)', marginBottom: '12px' }} />
-            <p><strong>Haz clic o arrastra un archivo</strong></p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>CSV, PDF, JPG admitidos</p>
-          </div>
-        </div>
       </div>
 
       <div className="glass-panel" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h3>Reglas de Categorización (Comercios)</h3>
-          <button className="glass-button">+ Nueva Regla</button>
+          <button className="glass-button" onClick={() => setShowRuleModal(true)}>
+            <Plus size={18} style={{ marginRight: '6px' }} /> Nueva Regla
+          </button>
         </div>
-        
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Patrón de Búsqueda (Texto/Regex)</th>
-                <th>Categoría a Asignar</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>MERCADONA</code></td>
-                <td><span className="cat-badge">Alimentación</span></td>
-                <td><button className="glass-button" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Editar</button></td>
-              </tr>
-              <tr>
-                <td><code>NETFLIX</code></td>
-                <td><span className="cat-badge">Ocio</span></td>
-                <td><button className="glass-button" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Editar</button></td>
-              </tr>
-              <tr>
-                <td><code>IBERDROLA</code></td>
-                <td><span className="cat-badge">Vivienda</span></td>
-                <td><button className="glass-button" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Editar</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+
+        {rulesLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+            <Loader2 className="spin" size={24} />
+          </div>
+        ) : rules.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No hay reglas de categorización configuradas.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Patrón de Búsqueda (Texto/Regex)</th>
+                  <th>Categoría a Asignar</th>
+                  <th>Prioridad</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map(rule => {
+                  const category = categories.find(c => c.id === rule.category_id);
+                  return (
+                    <tr key={rule.id}>
+                      <td><code>{rule.pattern}</code></td>
+                      <td>
+                        <span
+                          className="cat-badge"
+                          style={{
+                            backgroundColor: category?.color ? `${category.color}33` : 'rgba(255,255,255,0.1)',
+                            color: category?.color || '#fff',
+                            border: `1px solid ${category?.color || 'rgba(255,255,255,0.2)'}`
+                          }}
+                        >
+                          {category?.name || 'Desconocida'}
+                        </span>
+                      </td>
+                      <td>{rule.priority}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          onClick={() => handleDeleteRule(rule.id)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-danger)',
+                            cursor: 'pointer',
+                            opacity: 0.8
+                          }}
+                          title="Eliminar Regla"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Modal Nueva Regla */}
+      {showRuleModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="glass-panel" style={{ width: '400px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>Nueva Regla de Categorización</h3>
+              <button onClick={() => setShowRuleModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRule} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label>Patrón de Búsqueda (Texto o Regex)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. MERCADONA o Uber.*"
+                  value={ruleData.pattern}
+                  onChange={e => setRuleData({ ...ruleData, pattern: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Categoría a Asignar</label>
+                <select
+                  required
+                  value={ruleData.category_id}
+                  onChange={e => setRuleData({ ...ruleData, category_id: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">Selecciona una categoría...</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label>Prioridad (Las prioridades más altas se ejecutan primero)</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={ruleData.priority}
+                  onChange={e => setRuleData({ ...ruleData, priority: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <button type="submit" className="glass-button primary" style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }} disabled={creatingRule}>
+                {creatingRule ? <Loader2 className="spin" size={20} /> : 'Guardar Regla'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

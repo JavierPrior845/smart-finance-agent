@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, X, Loader2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, X, Loader2, AlertTriangle } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
   BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [pacingData, setPacingData] = useState<any[]>([]);
   const [netWorthData, setNetWorthData] = useState<any[]>([]);
   const [syncingInvestments, setSyncingInvestments] = useState(false);
+  const [anomalies, setAnomalies] = useState<any[]>([]);
 
   const [showModal, setShowModal] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -35,14 +36,15 @@ export default function Dashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [kpiRes, distRes, flowRes, pacingRes, netWorthRes, catRes, accRes] = await Promise.all([
+      const [kpiRes, distRes, flowRes, pacingRes, netWorthRes, catRes, accRes, anomalyRes] = await Promise.all([
         api.get('/analytics/kpis'),
         api.get('/analytics/distribution'),
         api.get('/analytics/cashflow'),
         api.get('/analytics/pacing'),
         api.get('/analytics/networth'),
         api.get('/categories'),
-        api.get('/accounts')
+        api.get('/accounts'),
+        api.get('/analytics/anomalies')
       ]);
       
       setKpis(kpiRes.data);
@@ -52,6 +54,7 @@ export default function Dashboard() {
       setNetWorthData(netWorthRes.data.data);
       setCategories(catRes.data);
       setAccounts(accRes.data);
+      setAnomalies(anomalyRes.data);
     } catch (error) {
       console.error("Error fetching dashboard data", error);
     } finally {
@@ -164,6 +167,38 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {anomalies.length > 0 && (
+            <div className="glass-panel" style={{ padding: '20px', marginTop: '24px', border: '1px solid rgba(255, 71, 87, 0.3)', background: 'rgba(255, 71, 87, 0.03)' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-danger)', margin: '0 0 12px 0', fontSize: '1.1rem' }}>
+                <AlertTriangle size={18} /> Alertas de Anomalías (Gastos Atípicos Detectados)
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {anomalies.map((tx) => {
+                  const cat = categories.find(c => c.id === tx.category_id);
+                  return (
+                    <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)' }}>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#fff' }}>{tx.description}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <span>{new Date(tx.transaction_date).toLocaleDateString()}</span>
+                          {cat && (
+                            <span className="cat-badge" style={{ backgroundColor: `${cat.color}22`, color: cat.color, border: `1px solid ${cat.color}33`, padding: '2px 6px', fontSize: '0.75rem' }}>
+                              {cat.name}
+                            </span>
+                          )}
+                          <span style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>Importe supera el comportamiento de gasto típico</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-danger)' }}>
+                        -€{Math.abs(tx.amount).toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
       <div className="charts-grid">
         {/* COLUMNA IZQUIERDA */}
