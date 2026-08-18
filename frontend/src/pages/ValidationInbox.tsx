@@ -83,6 +83,7 @@ export default function ValidationInbox() {
   };
 
   const handleConfirm = async (txn: any) => {
+    if (actioningId) return;
     if (!txn.editingDescription || !txn.editingAmount) {
       toast.error("Por favor completa concepto e importe.");
       return;
@@ -112,10 +113,11 @@ export default function ValidationInbox() {
   };
 
   const handleDiscard = async (id: string) => {
+    if (actioningId) return;
     if (!confirm("¿Seguro que deseas descartar este borrador?")) return;
 
     setActioningId(id);
-        try {
+    try {
       await api.delete(`/transactions/pending/${id}`);
       toast.success("Borrador descartado");
       setPendingTransactions(prev => prev.filter(t => t.id !== id));

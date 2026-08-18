@@ -88,11 +88,18 @@ async def confirm_pending_transaction(
     """Confirm a pending transaction, saving it to the database."""
     redis = await get_redis_pool()
     key = f"pending_tx:{tx_id}"
-    exists = await redis.exists(key)
-    if not exists:
-        raise HTTPException(status_code=404, detail="Borrador no encontrado o expirado.")
+    
+    # Prevención de Race Conditions (Doble click en el frontend)
+    lock_key = f"lock:{key}"
+    acquired = await redis.set(lock_key, "locked", nx=True, ex=30)
+    if not acquired:
+        raise HTTPException(status_code=429, detail="La transacción ya se está procesando.")
     
     try:
+        exists = await redis.exists(key)
+        if not exists:
+            raise HTTPException(status_code=404, detail="Borrador no encontrado o expirado.")
+        
         transaction = await use_case.execute(
             amount=data.amount,
             description=data.description,
@@ -106,6 +113,8 @@ async def confirm_pending_transaction(
         return transaction
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        await redis.delete(lock_key)
 
 @router.delete("/pending/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_pending_transaction(tx_id: str):

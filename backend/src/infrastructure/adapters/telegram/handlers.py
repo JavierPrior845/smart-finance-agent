@@ -92,25 +92,41 @@ async def photo_message_handler(message: Message) -> None:
 async def cancel_transaction_handler(callback: CallbackQuery) -> None:
     tx_id = callback.data.split(":")[1]
     redis = await get_redis_pool()
-    await redis.delete(f"pending_tx:{tx_id}")
+    key = f"pending_tx:{tx_id}"
+    
+    lock_key = f"lock:{key}"
+    if await redis.exists(lock_key):
+        await callback.answer("⏳ No se puede cancelar, la transacción ya se está procesando...", show_alert=True)
+        return
+        
+    await redis.delete(key)
     
     await callback.answer("Transacción cancelada")
     if callback.message:
-        await callback.message.edit_text("❌ <b>Registro de transacción cancelado.</b>", parse_mode="HTML")
+        await callback.message.edit_text("❌ <b>Registro de transacción cancelado.</b>", parse_mode="HTML", reply_markup=None)
 
 @router.callback_query(F.data.startswith("confirm_tx:"))
 async def confirm_transaction_handler(callback: CallbackQuery) -> None:
     tx_id = callback.data.split(":")[1]
     redis = await get_redis_pool()
-    draft_raw = await redis.get(f"pending_tx:{tx_id}")
+    key = f"pending_tx:{tx_id}"
     
-    if not draft_raw:
-        await callback.answer("⚠️ El borrador ha expirado o ya fue procesado.", show_alert=True)
+    # Prevención de Race Conditions (Doble tap en Telegram)
+    lock_key = f"lock:{key}"
+    acquired = await redis.set(lock_key, "locked", nx=True, ex=30)
+    if not acquired:
+        await callback.answer("⏳ Procesando...", show_alert=False)
         return
         
-    draft = json.loads(draft_raw)
-    
     try:
+        draft_raw = await redis.get(key)
+        
+        if not draft_raw:
+            await callback.answer("⚠️ El borrador ha expirado o ya fue procesado.", show_alert=True)
+            return
+            
+        draft = json.loads(draft_raw)
+    
         async with AsyncSessionLocal() as session:
             tx_repo = SQLAlchemyTransactionRepository(session)
             acc_repo = SQLAlchemyAccountRepository(session)
@@ -151,22 +167,32 @@ async def confirm_transaction_handler(callback: CallbackQuery) -> None:
             )
             await session.commit()
             
-        await redis.delete(f"pending_tx:{tx_id}")
+        await redis.delete(key)
         await callback.answer("¡Transacción registrada!")
         
         if callback.message:
-            account_str = "Cuenta Principal" if not account_id else draft.get("account_name")
-            category_str = "Otros" if not category_id else draft.get("category_name")
+            import html
+            account_str = html.escape("Cuenta Principal" if not account_id else (draft.get("account_name") or "Desconocida"))
+            category_str = html.escape("Otros" if not category_id else (draft.get("category_name") or "Desconocida"))
+            safe_desc = html.escape(draft.get("description", ""))
+            currency = html.escape(draft.get("currency", "EUR"))
+            
             await callback.message.edit_text(
                 f"✅ <b>Transacción Guardada Exitosamente</b>\n\n"
-                f"💰 <b>Importe:</b> {draft['amount']} {draft['currency']}\n"
-                f"📝 <b>Concepto:</b> {draft['description']}\n"
+                f"💰 <b>Importe:</b> {draft.get('amount', 0)} {currency}\n"
+                f"📝 <b>Concepto:</b> {safe_desc}\n"
                 f"🏦 <b>Cuenta:</b> {account_str}\n"
                 f"📁 <b>Categoría:</b> {category_str}\n\n"
                 f"<i>Registrado en la base de datos PostgreSQL.</i>",
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=None
             )
             
     except Exception as e:
         logger.error(f"Error saving transaction: {e}", exc_info=True)
-        await callback.answer("❌ Error al guardar la transacción", show_alert=True)
+        try:
+            await callback.answer("❌ Error al guardar la transacción", show_alert=True)
+        except Exception:
+            pass
+    finally:
+        await redis.delete(lock_key)

@@ -38,7 +38,7 @@ Unlike naïve LLM-wrapper applications, all accounting calculations, budget trac
                        +------------------------------------+
                        |           DATA SOURCES             |
                        +------------------------------------+
-                       | Telegram (Voice Notes / Text)      |
+                       | Telegram (Audio / Photo / Text)    |
                        | Web UI Dashboard / Manual Entry    |
                        +-----------------+------------------+
                                          |
