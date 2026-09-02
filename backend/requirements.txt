@@ -92,4 +92,5 @@ yfinance==1.5.2
 pytesseract
 Pillow
 sentence-transformers==2.7.0
+faster-whisper==1.0.3
 
