@@ -1,8 +1,7 @@
 services:
-  # PostgreSQL 16 Database with pgvector extension
   db:
     image: pgvector/pgvector:pg16
-    container_name: smart_finance_db
+    container_name: ${COMPOSE_PROJECT_NAME:-smartfinance}-db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -12,17 +11,15 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-smart_finance}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Redis for ARQ Task Queue
   redis:
     image: redis:7-alpine
-    container_name: smart_finance_redis
+    container_name: ${COMPOSE_PROJECT_NAME:-smartfinance}-redis
     restart: always
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -34,47 +31,93 @@ services:
       timeout: 5s
       retries: 5
 
-  # FastAPI Backend API Server
-  backend:
+  api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smart_finance_backend
+    container_name: ${COMPOSE_PROJECT_NAME:-smartfinance}-api
     restart: always
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
-      - ./backend:/app
+      - ./backend/alembic:/app/alembic
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/smart_finance}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_finance}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smart_finance}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-[]}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434/v1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:1.5b}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-EUR}
+      SECRET_KEY: ${SECRET_KEY:-super-secret-key}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # ARQ Worker for Async Speech-to-Text (Whisper) & Receipt OCR
   worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smart_finance_worker
+    container_name: ${COMPOSE_PROJECT_NAME:-smartfinance}-worker
     restart: always
-    command: arq src.infrastructure.adapters.tasks.WorkerSettings
-    volumes:
-      - ./backend:/app
+    command: arq src.infrastructure.adapters.tasks.worker.WorkerSettings
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/smart_finance}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_finance}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smart_finance}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-[]}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434/v1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:1.5b}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-EUR}
+      SECRET_KEY: ${SECRET_KEY:-super-secret-key}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+    container_name: ${COMPOSE_PROJECT_NAME:-smartfinance}-frontend
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
