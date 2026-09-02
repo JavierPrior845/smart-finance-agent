@@ -70,7 +70,15 @@ show_help() {
 }
 
 export_env_vars() {
-    if [[ -f "$PROJECT_ROOT/backend/.env" ]]; then
+    if [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/backend/.env.dev" ]]; then
+        set -a
+        source "$PROJECT_ROOT/backend/.env.dev"
+        set +a
+    elif [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/.env.dev" ]]; then
+        set -a
+        source "$PROJECT_ROOT/.env.dev"
+        set +a
+    elif [[ -f "$PROJECT_ROOT/backend/.env" ]]; then
         set -a
         source "$PROJECT_ROOT/backend/.env"
         set +a
@@ -83,19 +91,19 @@ export_env_vars() {
     if [[ $IS_DEV -eq 1 ]]; then
         echo -e "${YELLOW}>>> Modo DESARROLLO activado (--dev)${NC}"
         export COMPOSE_PROJECT_NAME="smartfinance-dev"
-        export POSTGRES_DB="${POSTGRES_DB:-smart_finance}_dev"
-        export POSTGRES_PORT=5433
-        export REDIS_PORT=6380
-        export API_PORT=8001
-        export FRONTEND_PORT=3001
+        export POSTGRES_DB="${POSTGRES_DB:-smart_finance_dev}"
+        export POSTGRES_PORT="${POSTGRES_DEV_PORT:-5433}"
+        export REDIS_PORT="${REDIS_DEV_PORT:-6380}"
+        export API_PORT="${API_DEV_PORT:-8001}"
+        export FRONTEND_PORT="${FRONTEND_DEV_PORT:-3001}"
     else
         echo -e "${GREEN}>>> Modo PRODUCCIÓN activado${NC}"
         export COMPOSE_PROJECT_NAME="smartfinance"
         export POSTGRES_DB="${POSTGRES_DB:-smart_finance}"
-        export POSTGRES_PORT=5432
-        export REDIS_PORT=6379
-        export API_PORT=8000
-        export FRONTEND_PORT=80
+        export POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+        export REDIS_PORT="${REDIS_PORT:-6379}"
+        export API_PORT="${API_PORT:-8000}"
+        export FRONTEND_PORT="${FRONTEND_PORT:-80}"
     fi
 }
 
