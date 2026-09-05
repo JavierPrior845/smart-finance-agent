@@ -124,36 +124,66 @@ export default function Budgets() {
               <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No hay presupuestos activos este mes.</p>
             ) : (
               budgets.map(budget => {
-                const percent = Math.min((budget.spent / budget.monthly_limit) * 100, 100);
-                const isOver = budget.spent > budget.monthly_limit;
                 const isIncome = budget.category_type === 'INCOME';
+                const netSpent = Math.max(0, budget.spent);
+                const percent = Math.min((netSpent / budget.monthly_limit) * 100, 100);
+                const isOver = !isIncome && budget.spent > budget.monthly_limit;
+                const isGoalReached = isIncome && budget.spent >= budget.monthly_limit;
                 const color = budget.category_color || 'var(--color-primary)';
                 
                 return (
-                  <div key={budget.id} className="budget-item">
-                    <div className="budget-info">
-                      <h4>{budget.category_name}</h4>
-                      <span>
-                        {isIncome ? 'Ganado' : 'Gastado'}: €{budget.spent.toFixed(2)} / €{budget.monthly_limit.toFixed(2)}
+                  <div key={budget.id} className="budget-item" style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
+                    <div className="budget-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: color }} />
+                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{budget.category_name}</h4>
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          backgroundColor: isIncome ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                          color: isIncome ? '#10b981' : '#60a5fa',
+                          fontWeight: 500
+                        }}>
+                          {isIncome ? 'Meta de Ingreso' : 'Presupuesto Gasto'}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                        {isIncome ? 'Ganado (Neto)' : 'Gastado (Neto)'}: <strong>€{budget.spent.toFixed(2)}</strong> / €{budget.monthly_limit.toFixed(2)}
                       </span>
                     </div>
-                    <div className="progress-bg">
+
+                    <div className="progress-bg" style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
                       <div 
                         className="progress-fill" 
                         style={{ 
                           width: `${percent}%`, 
+                          height: '100%',
+                          transition: 'width 0.3s ease',
                           background: isIncome 
-                            ? (budget.spent >= budget.monthly_limit ? '#10b981' : '#3b82f6')
+                            ? (isGoalReached ? '#10b981' : '#3b82f6')
                             : (isOver ? 'var(--color-danger)' : color) 
                         }}
                       />
                     </div>
-                    {isIncome && budget.spent >= budget.monthly_limit && (
-                      <span className="budget-alert" style={{ color: '#10b981' }}>¡Objetivo cumplido! 🎉</span>
-                    )}
-                    {!isIncome && isOver && (
-                      <span className="budget-alert">¡Límite excedido!</span>
-                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {percent.toFixed(0)}% {isIncome ? 'cumplido' : 'consumido'}
+                      </span>
+
+                      {isGoalReached && (
+                        <span className="budget-alert" style={{ color: '#10b981', fontWeight: 600, fontSize: '0.85rem' }}>¡Objetivo cumplido! 🎉</span>
+                      )}
+                      {isOver && (
+                        <span className="budget-alert" style={{ color: 'var(--color-danger)', fontWeight: 600, fontSize: '0.85rem' }}>¡Límite excedido!</span>
+                      )}
+                      {!isIncome && budget.spent < 0 && (
+                        <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 500 }}>
+                          Abonos superan gastos (+€{Math.abs(budget.spent).toFixed(2)})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })
