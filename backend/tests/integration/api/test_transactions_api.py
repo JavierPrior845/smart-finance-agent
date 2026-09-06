@@ -4,7 +4,7 @@ from uuid import uuid4
 import json
 from datetime import datetime, timezone
 from src.main import app
-from src.infrastructure.api.dependencies import get_create_transaction_use_case
+from src.infrastructure.api.dependencies import get_create_transaction_use_case, get_transaction_repo
 from src.infrastructure.adapters.redis.client import get_redis_pool
 from src.domain.models.transaction import Transaction
 
@@ -15,8 +15,11 @@ class MockRedis:
         return list(self.store.keys())
     async def get(self, key):
         return self.store.get(key)
-    async def set(self, key, val, ex=None):
+    async def set(self, key, val, ex=None, nx=False):
+        if nx and key in self.store:
+            return False
         self.store[key] = val
+        return True
     async def delete(self, key):
         self.store.pop(key, None)
     async def exists(self, key):
@@ -46,7 +49,12 @@ class MockCreateTransactionUseCase:
             currency="EUR"
         )
 
+class MockTransactionRepo:
+    async def get_all_paginated(self, limit=20, offset=0, search=None, category_id=None, source=None, month=None, year=None):
+        return [], 0
+
 app.dependency_overrides[get_create_transaction_use_case] = lambda: MockCreateTransactionUseCase()
+app.dependency_overrides[get_transaction_repo] = lambda: MockTransactionRepo()
 app.dependency_overrides[get_redis_pool] = lambda: mock_redis
 
 @pytest.mark.asyncio
@@ -107,4 +115,13 @@ async def test_pending_transactions_flow(async_client: AsyncClient):
     response = await async_client.get("/api/v1/transactions/pending")
     assert response.status_code == 200
     assert len(response.json()) == 0
+
+@pytest.mark.asyncio
+async def test_list_transactions_with_month_year_filter(async_client: AsyncClient):
+    cat_id = str(uuid4())
+    response = await async_client.get(f"/api/v1/transactions?category_id={cat_id}&month=9&year=2026")
+    assert response.status_code == 200
+    data = response.json()
+    assert "items" in data
+    assert "total" in data
 
