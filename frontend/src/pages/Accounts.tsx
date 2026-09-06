@@ -1,23 +1,47 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown } from 'lucide-react';
 import api from '../services/api';
 import './Pages.css';
+
+interface InvestmentMovement {
+  id: string;
+  asset_id: string;
+  movement_type: string;
+  amount: number;
+  units?: number;
+  unit_price?: number;
+  movement_date: string;
+  notes?: string;
+}
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [investments, setInvestments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Modales Cuentas & Nueva Inversión
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [showInvModal, setShowInvModal] = useState(false);
   const [savingInv, setSavingInv] = useState(false);
 
-  const [showCloseInvModal, setShowCloseInvModal] = useState(false);
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-  const [closeAmount, setCloseAmount] = useState('0');
-  const [closingInv, setClosingInv] = useState(false);
+  // Modales Avanzados de Inversiones (DCA, Venta Parcial, Historial)
+  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  
+  // Modal Comprar Más (DCA)
+  const [showBuyMoreModal, setShowBuyMoreModal] = useState(false);
+  const [buyMoreData, setBuyMoreData] = useState({ units: '', unit_price: '', notes: '', source_account_id: '' });
+  const [savingBuyMore, setSavingBuyMore] = useState(false);
+
+  // Modal Vender (Parcial o Total)
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellData, setSellData] = useState({ units: '', unit_price: '', notes: '', destination_account_id: '' });
+  const [savingSell, setSavingSell] = useState(false);
+
+  // Modal Historial Movimientos
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [assetMovements, setAssetMovements] = useState<InvestmentMovement[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -34,7 +58,8 @@ export default function Accounts() {
     broker: '',
     invested_amount: '0',
     units_qty: '0',
-    average_buy_price: '0'
+    average_buy_price: '0',
+    source_account_id: ''
   });
 
   const fetchAccountsAndInvestments = async () => {
@@ -56,7 +81,6 @@ export default function Accounts() {
   const syncInvestments = async () => {
     try {
       await api.post('/investments/sync');
-      // Later this will refetch investment list
     } catch (error) {
       console.error("Error syncing investments", error);
     }
@@ -64,7 +88,7 @@ export default function Accounts() {
 
   useEffect(() => {
     fetchAccountsAndInvestments();
-    syncInvestments(); // Silent sync in background
+    syncInvestments();
   }, []);
 
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -102,13 +126,14 @@ export default function Accounts() {
         asset_type: invFormData.asset_type,
         broker: invFormData.broker,
         invested_amount: parseFloat(invFormData.invested_amount),
-        units_qty: parseFloat(invFormData.units_qty) || null,
-        average_buy_price: parseFloat(invFormData.average_buy_price) || null,
+        units_qty: invFormData.units_qty ? parseFloat(invFormData.units_qty) : null,
+        average_buy_price: invFormData.average_buy_price ? parseFloat(invFormData.average_buy_price) : null,
+        source_account_id: invFormData.source_account_id || null
       });
       setShowInvModal(false);
-      setInvFormData({ name: '', ticker: '', asset_type: 'STOCK', broker: '', invested_amount: '0', units_qty: '0', average_buy_price: '0' });
+      setInvFormData({ name: '', ticker: '', asset_type: 'STOCK', broker: '', invested_amount: '0', units_qty: '0', average_buy_price: '0', source_account_id: '' });
       await fetchAccountsAndInvestments();
-      await syncInvestments(); // Sync the new ticker
+      await syncInvestments();
     } catch (error) {
       console.error("Error creating investment", error);
     } finally {
@@ -116,23 +141,66 @@ export default function Accounts() {
     }
   };
 
-  const handleCloseInvestment = async (e: React.FormEvent) => {
+  // 1. Ejecutar Comprar Más (DCA)
+  const handleBuyMore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAssetId) return;
+    if (!selectedAsset || !buyMoreData.units || !buyMoreData.unit_price) return;
 
-    setClosingInv(true);
+    setSavingBuyMore(true);
     try {
-      await api.post(`/investments/${selectedAssetId}/close`, {
-        withdrawn_amount: parseFloat(closeAmount)
+      await api.post(`/investments/${selectedAsset.id}/buy`, {
+        units: parseFloat(buyMoreData.units),
+        unit_price: parseFloat(buyMoreData.unit_price),
+        notes: buyMoreData.notes || null,
+        source_account_id: buyMoreData.source_account_id || null
       });
-      setShowCloseInvModal(false);
-      setSelectedAssetId(null);
-      setCloseAmount('0');
+      setShowBuyMoreModal(false);
+      setSelectedAsset(null);
+      setBuyMoreData({ units: '', unit_price: '', notes: '', source_account_id: '' });
       await fetchAccountsAndInvestments();
     } catch (error) {
-      console.error("Error closing investment", error);
+      console.error("Error buying more investment units", error);
     } finally {
-      setClosingInv(false);
+      setSavingBuyMore(false);
+    }
+  };
+
+  // 2. Ejecutar Vender Unidades (Parcial/Total)
+  const handleSellUnits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAsset || !sellData.units || !sellData.unit_price) return;
+
+    setSavingSell(true);
+    try {
+      await api.post(`/investments/${selectedAsset.id}/sell`, {
+        units: parseFloat(sellData.units),
+        unit_price: parseFloat(sellData.unit_price),
+        notes: sellData.notes || null,
+        destination_account_id: sellData.destination_account_id || null
+      });
+      setShowSellModal(false);
+      setSelectedAsset(null);
+      setSellData({ units: '', unit_price: '', notes: '', destination_account_id: '' });
+      await fetchAccountsAndInvestments();
+    } catch (error) {
+      console.error("Error selling investment units", error);
+    } finally {
+      setSavingSell(false);
+    }
+  };
+
+  // 3. Cargar Historial de Movimientos
+  const handleOpenHistory = async (asset: any) => {
+    setSelectedAsset(asset);
+    setShowHistoryModal(true);
+    setLoadingHistory(true);
+    try {
+      const res = await api.get(`/investments/${asset.id}/movements`);
+      setAssetMovements(res.data);
+    } catch (error) {
+      console.error("Error fetching investment movements", error);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -145,7 +213,7 @@ export default function Accounts() {
       <div className="view-header">
         <div>
           <h1 className="page-title">Cuentas & Inversiones</h1>
-          <p className="page-subtitle">Liquidez Total: €{totalLiquidity.toFixed(2)}</p>
+          <p className="page-subtitle">Liquidez Bancaria Total: €{totalLiquidity.toFixed(2)}</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="glass-button primary" onClick={() => setShowModal(true)}>
@@ -160,6 +228,7 @@ export default function Accounts() {
       </div>
 
       <div className="accounts-grid">
+        {/* Panel Cuentas */}
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ marginBottom: '24px' }}>Cuentas Bancarias y Billeteras</h3>
           <div className="account-list">
@@ -185,40 +254,82 @@ export default function Accounts() {
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '24px' }}>Posiciones Abiertas</h3>
+        {/* Panel Posiciones Abiertas */}
+        <div className="glass-panel" style={{ padding: '24px', gridColumn: 'span 2' }}>
+          <h3 style={{ marginBottom: '24px' }}>Posiciones Abiertas en Cartera</h3>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Activo</th>
-                  <th>Cant.</th>
-                  <th>P&L</th>
-                  <th>Acciones</th>
+                  <th>Broker</th>
+                  <th>Unidades</th>
+                  <th>PMP (€)</th>
+                  <th>Invertido Actual</th>
+                  <th>P&L Realizado</th>
+                  <th>P&L Latente</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {openPositions.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No tienes posiciones abiertas</td></tr>}
+                {openPositions.length === 0 && (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No tienes posiciones abiertas</td></tr>
+                )}
                 {openPositions.map(inv => {
                   const invested = inv.invested_amount;
-                  const current = inv.total_value !== null ? inv.total_value : invested; // Fallback if no snapshot yet
-                  const pnl = current - invested;
-                  const isPositive = pnl >= 0;
+                  const currentVal = inv.total_value !== null && inv.total_value !== undefined ? inv.total_value : invested;
+                  const unrealizedPnl = currentVal - invested;
+                  const isUnrealizedPos = unrealizedPnl >= 0;
+                  const isRealizedPos = inv.realized_pnl >= 0;
+                  const pmp = inv.average_buy_price || (inv.units_qty ? invested / inv.units_qty : 0);
+
                   return (
                     <tr key={inv.id}>
-                      <td><strong>{inv.ticker || inv.name}</strong></td>
-                      <td>{inv.units_qty || '-'}</td>
-                      <td className={isPositive ? 'text-success' : 'text-danger'}>
-                        {isPositive ? '+' : ''}€{pnl.toFixed(2)}
+                      <td>
+                        <strong>{inv.ticker || inv.name}</strong>
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inv.name}</span>
+                      </td>
+                      <td><span className="badge" style={{ background: 'rgba(255,255,255,0.08)' }}>{inv.broker}</span></td>
+                      <td>{inv.units_qty !== null ? inv.units_qty.toFixed(4) : '-'}</td>
+                      <td>€{pmp.toFixed(2)}</td>
+                      <td>€{invested.toFixed(2)}</td>
+                      <td style={{ color: isRealizedPos ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: 600 }}>
+                        {isRealizedPos ? '+' : ''}€{inv.realized_pnl.toFixed(2)}
+                      </td>
+                      <td style={{ color: isUnrealizedPos ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: 600 }}>
+                        {isUnrealizedPos ? '+' : ''}€{unrealizedPnl.toFixed(2)}
                       </td>
                       <td>
-                        <button 
-                          className="glass-button" 
-                          style={{ padding: '4px 8px', fontSize: '12px', background: 'rgba(255, 71, 87, 0.2)', color: '#ff4757', borderColor: 'rgba(255, 71, 87, 0.4)' }}
-                          onClick={() => { setSelectedAssetId(inv.id); setShowCloseInvModal(true); }}
-                        >
-                          Cerrar
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <button 
+                            className="glass-button" 
+                            style={{ padding: '4px 8px', fontSize: '12px', background: 'rgba(0, 255, 127, 0.15)', color: 'var(--color-success)', borderColor: 'rgba(0, 255, 127, 0.3)' }}
+                            onClick={() => { setSelectedAsset(inv); setShowBuyMoreModal(true); }}
+                            title="Comprar más unidades (DCA)"
+                          >
+                            <Plus size={14} /> Comprar
+                          </button>
+                          <button 
+                            className="glass-button" 
+                            style={{ padding: '4px 8px', fontSize: '12px', background: 'rgba(255, 51, 102, 0.15)', color: 'var(--color-danger)', borderColor: 'rgba(255, 51, 102, 0.3)' }}
+                            onClick={() => { 
+                              setSelectedAsset(inv); 
+                              setSellData({ units: inv.units_qty ? inv.units_qty.toString() : '', unit_price: pmp.toString(), notes: '', destination_account_id: '' });
+                              setShowSellModal(true); 
+                            }}
+                            title="Vender parcial o totalmente"
+                          >
+                            <Minus size={14} /> Vender
+                          </button>
+                          <button 
+                            className="glass-button" 
+                            style={{ padding: '4px 8px', fontSize: '12px' }}
+                            onClick={() => handleOpenHistory(inv)}
+                            title="Ver historial de operaciones"
+                          >
+                            <History size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -228,38 +339,43 @@ export default function Accounts() {
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        {/* Panel Posiciones Cerradas */}
+        <div className="glass-panel" style={{ padding: '24px', gridColumn: 'span 2' }}>
           <h3 style={{ marginBottom: '24px' }}>Posiciones Cerradas (Histórico)</h3>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Activo</th>
-                  <th>Invertido</th>
-                  <th>Retirado</th>
-                  <th>P&L</th>
-                  <th>ROI</th>
+                  <th>Broker</th>
+                  <th>Total Retirado (€)</th>
+                  <th>Ganancia Realizada (€)</th>
+                  <th>Historial</th>
                 </tr>
               </thead>
               <tbody>
                 {closedPositions.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No tienes posiciones cerradas</td></tr>}
                 {closedPositions.map(inv => {
-                  const invested = inv.invested_amount;
                   const withdrawn = inv.withdrawn_amount;
                   const pnl = inv.realized_pnl;
                   const isPositive = pnl >= 0;
-                  const roi = invested > 0 ? (pnl / invested) * 100 : 0;
                   
                   return (
                     <tr key={inv.id}>
                       <td><strong>{inv.ticker || inv.name}</strong></td>
-                      <td>€{invested.toFixed(2)}</td>
+                      <td>{inv.broker}</td>
                       <td>€{withdrawn.toFixed(2)}</td>
-                      <td className={isPositive ? 'text-success' : 'text-danger'}>
+                      <td style={{ color: isPositive ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: 600 }}>
                         {isPositive ? '+' : ''}€{pnl.toFixed(2)}
                       </td>
-                      <td className={isPositive ? 'text-success' : 'text-danger'}>
-                        {isPositive ? '+' : ''}{roi.toFixed(1)}%
+                      <td>
+                        <button 
+                          className="glass-button" 
+                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                          onClick={() => handleOpenHistory(inv)}
+                        >
+                          <History size={14} /> Ver
+                        </button>
                       </td>
                     </tr>
                   );
@@ -357,9 +473,9 @@ export default function Accounts() {
           display: 'flex', justifyContent: 'center', alignItems: 'center',
           zIndex: 1000, backdropFilter: 'blur(4px)'
         }}>
-          <div className="glass-panel" style={{ width: '450px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="glass-panel" style={{ width: '480px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0 }}>Nueva Inversión</h3>
+              <h3 style={{ margin: 0 }}>Nueva Posición de Inversión</h3>
               <button onClick={() => setShowInvModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
                 <X size={20} />
               </button>
@@ -412,14 +528,14 @@ export default function Accounts() {
                     required
                     value={invFormData.broker} 
                     onChange={e => setInvFormData({...invFormData, broker: e.target.value})}
-                    placeholder="Ej. Binance, MyInvestor"
+                    placeholder="Ej. Binance, Trade Republic"
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
                 </div>
               </div>
 
               <div className="input-group">
-                <label>Total Invertido (€)</label>
+                <label>Total Invertido Inicialmente (€)</label>
                 <input 
                   type="number" 
                   step="0.01"
@@ -442,7 +558,7 @@ export default function Accounts() {
                   />
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
-                  <label>Precio Medio de Compra</label>
+                  <label>Precio Unitario (€)</label>
                   <input 
                     type="number" 
                     step="0.00000001"
@@ -451,6 +567,20 @@ export default function Accounts() {
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
                 </div>
+              </div>
+
+              <div className="input-group">
+                <label>Cuenta Origen de Pago (Opcional)</label>
+                <select 
+                  value={invFormData.source_account_id} 
+                  onChange={e => setInvFormData({...invFormData, source_account_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">Selecciona cuenta...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} (€{acc.current_balance.toFixed(2)})</option>
+                  ))}
+                </select>
               </div>
 
               <button 
@@ -466,48 +596,203 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Modal Cerrar Inversión */}
-      {showCloseInvModal && (
+      {/* Modal Comprar Más (DCA) */}
+      {showBuyMoreModal && selectedAsset && (
         <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
+          backgroundColor: 'rgba(0,0,0,0.75)',
           display: 'flex', justifyContent: 'center', alignItems: 'center',
-          zIndex: 1000, backdropFilter: 'blur(4px)'
+          zIndex: 1000, backdropFilter: 'blur(6px)'
         }}>
-          <div className="glass-panel" style={{ width: '400px', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, color: '#ff4757' }}>Cerrar Inversión</h3>
-              <button onClick={() => { setShowCloseInvModal(false); setSelectedAssetId(null); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+          <div className="glass-panel" style={{ width: '420px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: 'var(--color-success)' }}>
+                Comprar más de {selectedAsset.ticker || selectedAsset.name} (DCA)
+              </h3>
+              <button onClick={() => { setShowBuyMoreModal(false); setSelectedAsset(null); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
                 <X size={20} />
               </button>
             </div>
-            
-            <form onSubmit={handleCloseInvestment} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>
-                Indica la cantidad final exacta que has recibido al vender o retirar esta inversión.
-              </p>
-              
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              El Precio Medio Ponderado (PMP) y las unidades totales se recalcularán automáticamente.
+            </p>
+
+            <form onSubmit={handleBuyMore} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Nuevas Unidades</label>
+                  <input 
+                    type="number" 
+                    step="0.00000001"
+                    required
+                    value={buyMoreData.units}
+                    onChange={e => setBuyMoreData({...buyMoreData, units: e.target.value})}
+                    placeholder="Ej. 0.5"
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                </div>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Precio por Unidad (€)</label>
+                  <input 
+                    type="number" 
+                    step="0.00000001"
+                    required
+                    value={buyMoreData.unit_price}
+                    onChange={e => setBuyMoreData({...buyMoreData, unit_price: e.target.value})}
+                    placeholder="Ej. 250.0"
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                </div>
+              </div>
+
               <div className="input-group">
-                <label>Cantidad Recibida (€)</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  required
-                  value={closeAmount} 
-                  onChange={e => setCloseAmount(e.target.value)}
+                <label>Cuenta de Pago (Opcional)</label>
+                <select 
+                  value={buyMoreData.source_account_id} 
+                  onChange={e => setBuyMoreData({...buyMoreData, source_account_id: e.target.value})}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-                />
+                >
+                  <option value="">Selecciona cuenta...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} (€{acc.current_balance.toFixed(2)})</option>
+                  ))}
+                </select>
+              </div>
+
+              <button 
+                type="submit" 
+                className="glass-button success" 
+                style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}
+                disabled={savingBuyMore}
+              >
+                {savingBuyMore ? <Loader2 className="spin" size={20} /> : 'Confirmar Compra DCA'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Vender Unidades (Parcial/Total) */}
+      {showSellModal && selectedAsset && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(6px)'
+        }}>
+          <div className="glass-panel" style={{ width: '420px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: 'var(--color-danger)' }}>
+                Vender {selectedAsset.ticker || selectedAsset.name}
+              </h3>
+              <button onClick={() => { setShowSellModal(false); setSelectedAsset(null); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Unidades actuales disponibles: <strong>{selectedAsset.units_qty}</strong>. Si vendes todas las unidades, la posición se cerrará.
+            </p>
+
+            <form onSubmit={handleSellUnits} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Unidades a Vender</label>
+                  <input 
+                    type="number" 
+                    step="0.00000001"
+                    required
+                    value={sellData.units}
+                    onChange={e => setSellData({...sellData, units: e.target.value})}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                </div>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Precio Venta (€/u)</label>
+                  <input 
+                    type="number" 
+                    step="0.00000001"
+                    required
+                    value={sellData.unit_price}
+                    onChange={e => setSellData({...sellData, unit_price: e.target.value})}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>Cuenta Destino del Dinero (Opcional)</label>
+                <select 
+                  value={sellData.destination_account_id} 
+                  onChange={e => setSellData({...sellData, destination_account_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">Selecciona cuenta...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} (€{acc.current_balance.toFixed(2)})</option>
+                  ))}
+                </select>
               </div>
 
               <button 
                 type="submit" 
                 className="glass-button" 
-                style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', background: '#ff4757', color: '#fff', border: 'none' }}
-                disabled={closingInv}
+                style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', background: 'var(--color-danger)', color: '#fff', border: 'none' }}
+                disabled={savingSell}
               >
-                {closingInv ? <Loader2 className="spin" size={20} /> : 'Confirmar Venta'}
+                {savingSell ? <Loader2 className="spin" size={20} /> : 'Confirmar Venta'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Historial de Movimientos */}
+      {showHistoryModal && selectedAsset && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(6px)'
+        }}>
+          <div className="glass-panel" style={{ width: '560px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0 }}>Historial: {selectedAsset.ticker || selectedAsset.name}</h3>
+              <button onClick={() => { setShowHistoryModal(false); setSelectedAsset(null); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {loadingHistory ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                  <Loader2 className="spin" size={28} />
+                </div>
+              ) : assetMovements.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Sin historial registrado.</p>
+              ) : (
+                assetMovements.map(m => {
+                  const isBuy = m.movement_type === 'BUY_MORE';
+                  const dateStr = new Date(m.movement_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                  return (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {isBuy ? <TrendingUp size={18} style={{ color: 'var(--color-success)' }} /> : <TrendingDown size={18} style={{ color: 'var(--color-danger)' }} />}
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{isBuy ? 'Compra (DCA)' : 'Venta'} {m.units ? `(${m.units} u)` : ''}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{dateStr} {m.unit_price ? `@ €${m.unit_price.toFixed(2)}/u` : ''}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 600, color: isBuy ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                        {isBuy ? '-' : '+'}€{m.amount.toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}

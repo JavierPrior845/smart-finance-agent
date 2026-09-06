@@ -5,7 +5,14 @@ from src.infrastructure.api.dependencies import get_sync_investments_use_case, g
 from src.application.use_cases.sync_investments import SyncInvestmentsUseCase
 from src.application.use_cases.manage_investment import ManageInvestmentUseCase
 from src.application.ports.investment_repository import InvestmentRepository
-from src.infrastructure.api.v1.schemas.investment import InvestmentCreate, InvestmentResponse, InvestmentClose
+from src.infrastructure.api.v1.schemas.investment import (
+    InvestmentCreate, 
+    InvestmentResponse, 
+    InvestmentClose,
+    InvestmentBuyMore,
+    InvestmentSellPartial,
+    InvestmentMovementResponse
+)
 
 router = APIRouter(prefix="/investments", tags=["Investments"])
 
@@ -37,15 +44,50 @@ async def create_investment(
     asset = await use_case.create_investment(data)
     return asset
 
+@router.post("/{asset_id}/buy", response_model=InvestmentResponse, status_code=status.HTTP_200_OK)
+async def buy_more_investment(
+    asset_id: UUID,
+    data: InvestmentBuyMore,
+    use_case: ManageInvestmentUseCase = Depends(get_manage_investment_use_case)
+):
+    """Register an additional purchase (DCA) of an investment asset."""
+    try:
+        asset = await use_case.buy_more(asset_id, data)
+        return asset
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/{asset_id}/sell", response_model=InvestmentResponse, status_code=status.HTTP_200_OK)
+async def sell_investment_units(
+    asset_id: UUID,
+    data: InvestmentSellPartial,
+    use_case: ManageInvestmentUseCase = Depends(get_manage_investment_use_case)
+):
+    """Register a partial or total sale of units from an investment position."""
+    try:
+        asset = await use_case.sell_units(asset_id, data)
+        return asset
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/{asset_id}/close", response_model=InvestmentResponse, status_code=status.HTTP_200_OK)
 async def close_investment(
     asset_id: UUID,
     data: InvestmentClose,
     use_case: ManageInvestmentUseCase = Depends(get_manage_investment_use_case)
 ):
-    """Closes an open investment position and registers the withdrawn amount."""
+    """Closes an open investment position completely."""
     try:
         asset = await use_case.close_investment(asset_id, data)
         return asset
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{asset_id}/movements", response_model=List[InvestmentMovementResponse])
+async def get_investment_movements(
+    asset_id: UUID,
+    repo: InvestmentRepository = Depends(get_investment_repo)
+):
+    """Retrieve the movement timeline (buys and sells) for a specific asset."""
+    movements = await repo.get_movements_by_asset(asset_id)
+    return movements

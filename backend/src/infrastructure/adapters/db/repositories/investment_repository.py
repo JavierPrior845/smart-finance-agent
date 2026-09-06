@@ -151,3 +151,12 @@ class SQLAlchemyInvestmentRepository(InvestmentRepository):
         self.session.add(orm)
         await self.session.flush()
         return movement
+
+    async def get_movements_by_asset(self, asset_id: UUID) -> List[InvestmentMovement]:
+        stmt = (
+            select(InvestmentMovementORM)
+            .where(InvestmentMovementORM.asset_id == asset_id)
+            .order_by(InvestmentMovementORM.movement_date.desc())
+        )
+        result = await self.session.execute(stmt)
+        return [self._movement_to_domain(orm) for orm in result.scalars().all()]
