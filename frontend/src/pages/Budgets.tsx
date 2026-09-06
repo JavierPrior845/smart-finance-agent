@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Loader2, Trash2, Edit2 } from 'lucide-react';
+import { Plus, X, Loader2, Trash2, Edit2, Eye } from 'lucide-react';
 import api from '../services/api';
+import CategoryTransactionsModal from '../components/CategoryTransactionsModal';
 import './Pages.css';
 
 export default function Budgets() {
@@ -10,6 +11,7 @@ export default function Budgets() {
   
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<{ id: string; name: string; color?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   
   const currentMonth = new Date().getMonth() + 1;
@@ -132,7 +134,29 @@ export default function Budgets() {
                 const color = budget.category_color || 'var(--color-primary)';
                 
                 return (
-                  <div key={budget.id} className="budget-item" style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
+                  <div 
+                    key={budget.id} 
+                    className="budget-item" 
+                    onClick={() => setSelectedCategoryForModal({ id: budget.category_id, name: budget.category_name, color: budget.category_color })}
+                    style={{ 
+                      padding: '14px', 
+                      borderRadius: '12px', 
+                      background: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid rgba(255,255,255,0.05)', 
+                      marginBottom: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)';
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.05)';
+                    }}
+                    title="Haz clic para ver las transacciones de esta categoría"
+                  >
                     <div className="budget-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: color }} />
@@ -148,9 +172,12 @@ export default function Budgets() {
                           {isIncome ? 'Meta de Ingreso' : 'Presupuesto Gasto'}
                         </span>
                       </div>
-                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                        {isIncome ? 'Ganado (Neto)' : 'Gastado (Neto)'}: <strong>€{budget.spent.toFixed(2)}</strong> / €{budget.monthly_limit.toFixed(2)}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                          {isIncome ? 'Ganado (Neto)' : 'Gastado (Neto)'}: <strong>€{budget.spent.toFixed(2)}</strong> / €{budget.monthly_limit.toFixed(2)}
+                        </span>
+                        <Eye size={16} style={{ opacity: 0.6, color: 'var(--text-secondary)' }} />
+                      </div>
                     </div>
 
                     <div className="progress-bg" style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
@@ -196,7 +223,23 @@ export default function Budgets() {
           <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Tus Categorías Base</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {categories.map(cat => (
-              <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+              <div 
+                key={cat.id} 
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  padding: '12px', 
+                  background: 'rgba(255,255,255,0.05)', 
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease'
+                }}
+                onClick={() => setSelectedCategoryForModal({ id: cat.id, name: cat.name, color: cat.color })}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                title="Haz clic para ver las transacciones de esta categoría"
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: cat.color || '#ccc' }}></div>
                   <div>
@@ -209,13 +252,18 @@ export default function Budgets() {
                     </span>
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleDeactivateCategory(cat.id)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', opacity: 0.8 }}
-                  title="Desactivar Categoría"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeactivateCategory(cat.id);
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', opacity: 0.8 }}
+                    title="Desactivar Categoría"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -347,6 +395,18 @@ export default function Budgets() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal de Transacciones por Categoría */}
+      {selectedCategoryForModal && (
+        <CategoryTransactionsModal
+          categoryId={selectedCategoryForModal.id}
+          categoryName={selectedCategoryForModal.name}
+          categoryColor={selectedCategoryForModal.color}
+          month={currentMonth}
+          year={currentYear}
+          onClose={() => setSelectedCategoryForModal(null)}
+        />
       )}
     </div>
   );
