@@ -12,6 +12,8 @@ class Settings(BaseSettings):
 
     # Security & Telegram
     SECRET_KEY: str = "super-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_ALLOWED_USER_IDS: List[int] = []
 

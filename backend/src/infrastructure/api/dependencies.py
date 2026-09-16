@@ -61,6 +61,14 @@ def get_manage_investment_use_case(
 
 from src.infrastructure.adapters.db.repositories.merchant_rule_repository import SQLAlchemyMerchantRuleRepository
 from src.application.use_cases.manage_merchant_rules import ManageMerchantRulesUseCase
+from src.infrastructure.adapters.db.repositories.user_repository import SQLAlchemyUserRepository
+from src.infrastructure.adapters.auth.security import decode_access_token
+from src.infrastructure.adapters.db.models.user import UserORM
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import HTTPException, status
+from uuid import UUID
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 def get_merchant_rule_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyMerchantRuleRepository:
     return SQLAlchemyMerchantRuleRepository(session)
@@ -69,3 +77,45 @@ def get_manage_merchant_rules_use_case(
     repo: SQLAlchemyMerchantRuleRepository = Depends(get_merchant_rule_repo)
 ) -> ManageMerchantRulesUseCase:
     return ManageMerchantRulesUseCase(repo)
+
+def get_user_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyUserRepository:
+    return SQLAlchemyUserRepository(session)
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    user_repo: SQLAlchemyUserRepository = Depends(get_user_repo)
+) -> UserORM:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Autenticación requerida. Token no proporcionado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        user_id = UUID(payload["sub"])
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Identificador de usuario inválido en el token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no encontrado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario inactivo.",
+        )
+    return user
