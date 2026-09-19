@@ -56,3 +56,16 @@ class SQLAlchemyUserRepository:
         )
         await self.session.execute(stmt)
         await self.session.commit()
+
+    async def list_all(self) -> list[UserORM]:
+        stmt = select(UserORM).order_by(UserORM.created_at.asc())
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_user(self, user_id: UUID) -> bool:
+        user = await self.get_by_id(user_id)
+        if not user:
+            return False
+        await self.session.delete(user)
+        await self.session.commit()
+        return True

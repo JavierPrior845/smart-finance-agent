@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from src.infrastructure.adapters.auth.security import (
     hash_password,
@@ -68,6 +69,21 @@ async def register(
     )
 
 
+@router.get("/users", response_model=list[UserResponse])
+async def list_users(
+    current_user: UserORM = Depends(get_current_user),
+    user_repo: SQLAlchemyUserRepository = Depends(get_user_repo),
+):
+    """Lista todos los usuarios registrados. Solo accesible para administradores."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los administradores pueden consultar la lista de usuarios.",
+        )
+    users = await user_repo.list_all()
+    return [UserResponse.model_validate(u) for u in users]
+
+
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_by_admin(
     payload: UserRegisterRequest,
@@ -96,6 +112,31 @@ async def create_user_by_admin(
         role="user",
     )
     return UserResponse.model_validate(user)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: UUID,
+    current_user: UserORM = Depends(get_current_user),
+    user_repo: SQLAlchemyUserRepository = Depends(get_user_repo),
+):
+    """Elimina un usuario de la instancia. No permite auto-eliminación."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los administradores pueden eliminar usuarios.",
+        )
+    if current_user.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No puedes eliminar tu propia cuenta de administrador.",
+        )
+    deleted = await user_repo.delete_user(user_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado.",
+        )
 
 
 @router.post("/login", response_model=TokenResponse)
