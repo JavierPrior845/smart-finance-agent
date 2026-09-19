@@ -32,7 +32,14 @@ async def register(
     payload: UserRegisterRequest,
     user_repo: SQLAlchemyUserRepository = Depends(get_user_repo),
 ):
-    """Registra el primer administrador o un nuevo usuario y emite un token de 1 hora."""
+    """Registra el administrador en el primer arranque (Setup). Se bloquea una vez creado."""
+    user_count = await user_repo.count_users()
+    if user_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El registro público de usuarios está deshabilitado en esta instancia. Inicia sesión con la cuenta de administrador.",
+        )
+
     existing_user = await user_repo.get_by_email(payload.email)
     if existing_user:
         raise HTTPException(
@@ -40,16 +47,12 @@ async def register(
             detail="Ya existe un usuario con este correo electrónico.",
         )
 
-    # Si es el primer usuario en la base de datos, asigna rol 'admin'
-    user_count = await user_repo.count_users()
-    role = "admin" if user_count == 0 else "user"
-
     hashed_pw = hash_password(payload.password)
     user = await user_repo.create_user(
         name=payload.name,
         email=payload.email,
         hashed_password=hashed_pw,
-        role=role,
+        role="admin",
     )
 
     access_token = create_access_token(
@@ -63,6 +66,36 @@ async def register(
         expires_in=3600,
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user_by_admin(
+    payload: UserRegisterRequest,
+    current_user: UserORM = Depends(get_current_user),
+    user_repo: SQLAlchemyUserRepository = Depends(get_user_repo),
+):
+    """Crea un nuevo usuario de forma controlada. Requiere estar autenticado como 'admin'."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los administradores pueden crear nuevos usuarios.",
+        )
+
+    existing_user = await user_repo.get_by_email(payload.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ya existe un usuario con este correo electrónico.",
+        )
+
+    hashed_pw = hash_password(payload.password)
+    user = await user_repo.create_user(
+        name=payload.name,
+        email=payload.email,
+        hashed_password=hashed_pw,
+        role="user",
+    )
+    return UserResponse.model_validate(user)
 
 
 @router.post("/login", response_model=TokenResponse)

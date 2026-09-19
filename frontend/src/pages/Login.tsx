@@ -7,7 +7,6 @@ import './Login.css';
 export default function Login() {
   const { login, register } = useAuth();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -15,17 +14,14 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Check setup status on load
+  // Check setup status on load: If 0 users, force Setup mode; otherwise lock to Login only
   useEffect(() => {
     const checkSetup = async () => {
       try {
         const res = await api.get('/auth/setup-status');
-        setIsConfigured(res.data.is_configured);
-        if (!res.data.is_configured) {
-          setIsRegisterMode(true);
-        }
+        setIsRegisterMode(!res.data.is_configured);
       } catch {
-        setIsConfigured(true);
+        setIsRegisterMode(false);
       }
     };
     checkSetup();
@@ -63,13 +59,11 @@ export default function Login() {
             <span>Self-Hosted Security</span>
           </div>
 
-          <h1>{isRegisterMode ? (isConfigured === false ? 'Configuración Inicial' : 'Crear Usuario') : 'Iniciar Sesión'}</h1>
+          <h1>{isRegisterMode ? 'Configuración Inicial' : 'Iniciar Sesión'}</h1>
           <p>
             {isRegisterMode
-              ? isConfigured === false
-                ? 'Define la cuenta de administrador local para tu instancia'
-                : 'Registra una nueva cuenta de acceso a tu gestor'
-              : 'Introduce tus credenciales para acceder a tus finanzas'}
+              ? 'Define la cuenta de administrador local para tu instancia privada'
+              : 'Introduce tus credenciales maestras para acceder a tu gestor'}
           </p>
         </div>
 
@@ -93,13 +87,13 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="auth-form">
           {isRegisterMode && (
             <div className="form-group">
-              <label htmlFor="name">Nombre Completo</label>
+              <label htmlFor="name">Nombre del Administrador</label>
               <div className="input-wrapper">
                 <User size={18} className="input-icon" />
                 <input
                   id="name"
                   type="text"
-                  placeholder="Tu nombre o Administrador"
+                  placeholder="Administrador"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -147,31 +141,16 @@ export default function Login() {
               </>
             ) : (
               <>
-                <span>{isRegisterMode ? 'Crear Cuenta y Entrar' : 'Acceder'}</span>
+                <span>{isRegisterMode ? 'Crear Administrador y Entrar' : 'Acceder'}</span>
                 <ArrowRight size={18} />
               </>
             )}
           </button>
         </form>
 
-        {isConfigured !== false && (
-          <div className="auth-toggle">
-            {isRegisterMode ? '¿Ya tienes una cuenta?' : '¿Quieres añadir otro usuario?'}
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegisterMode(!isRegisterMode);
-                setErrorMessage('');
-              }}
-            >
-              {isRegisterMode ? 'Inicia sesión aquí' : 'Registrar'}
-            </button>
-          </div>
-        )}
-
         <div className="security-notice">
           <Lock size={13} />
-          <span>Sesión Bearer Token cifrada de 1 hora de duración</span>
+          <span>Instancia privada monousuario. Registro público bloqueado.</span>
         </div>
       </div>
     </div>
