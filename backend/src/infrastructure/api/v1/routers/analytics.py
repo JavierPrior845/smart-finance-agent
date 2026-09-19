@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from typing import List
+from uuid import UUID
 
 from src.infrastructure.adapters.db.session import get_db_session
 from src.infrastructure.adapters.db.repositories.analytics_repository import AnalyticsRepository
@@ -51,3 +52,15 @@ async def get_dashboard_anomalies(
 ):
     """Retrieve recent anomalous transactions."""
     return await repo.get_anomalous(limit=limit)
+
+@router.delete("/anomalies/{transaction_id}", status_code=status.HTTP_200_OK)
+@router.put("/anomalies/{transaction_id}/dismiss", status_code=status.HTTP_200_OK)
+async def dismiss_dashboard_anomaly(
+    transaction_id: UUID,
+    repo: TransactionRepository = Depends(get_transaction_repo)
+):
+    """Dismiss an anomaly alert for a transaction (sets is_anomalous to False)."""
+    success = await repo.dismiss_anomaly(transaction_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Transacción no encontrada o ya descartada.")
+    return {"status": "success", "message": "Alerta de anomalía descartada correctamente."}

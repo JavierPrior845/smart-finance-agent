@@ -45,3 +45,7 @@ class TransactionRepository(ABC):
     @abstractmethod
     async def get_anomalous(self, limit: int = 50) -> List[Transaction]:
         pass
+
+    @abstractmethod
+    async def dismiss_anomaly(self, transaction_id: UUID) -> bool:
+        pass
