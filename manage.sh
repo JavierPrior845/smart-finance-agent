@@ -70,28 +70,30 @@ show_help() {
 }
 
 export_env_vars() {
-    if [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/backend/.env.dev" ]]; then
-        set -a
-        source "$PROJECT_ROOT/backend/.env.dev"
-        set +a
-    elif [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/.env.dev" ]]; then
+    if [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/.env.dev" ]]; then
         set -a
         source "$PROJECT_ROOT/.env.dev"
         set +a
-    elif [[ -f "$PROJECT_ROOT/backend/.env" ]]; then
+    elif [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/backend/.env.dev" ]]; then
         set -a
-        source "$PROJECT_ROOT/backend/.env"
+        source "$PROJECT_ROOT/backend/.env.dev"
         set +a
     elif [[ -f "$PROJECT_ROOT/.env" ]]; then
         set -a
         source "$PROJECT_ROOT/.env"
+        set +a
+    elif [[ -f "$PROJECT_ROOT/backend/.env" ]]; then
+        set -a
+        source "$PROJECT_ROOT/backend/.env"
         set +a
     fi
 
     if [[ $IS_DEV -eq 1 ]]; then
         echo -e "${YELLOW}>>> Modo DESARROLLO activado (--dev)${NC}"
         export COMPOSE_PROJECT_NAME="smartfinance-dev"
-        export POSTGRES_DB="${POSTGRES_DB:-smart_finance_dev}"
+        if [[ -z "$POSTGRES_DB" || "$POSTGRES_DB" == "smart_finance" ]]; then
+            export POSTGRES_DB="smart_finance_dev"
+        fi
         export POSTGRES_PORT="${POSTGRES_DEV_PORT:-5433}"
         export REDIS_PORT="${REDIS_DEV_PORT:-6380}"
         export API_PORT="${API_DEV_PORT:-8001}"
@@ -117,6 +119,8 @@ start_services() {
     echo -e "${BLUE}Levantando contenedores de Docker...${NC}"
     docker compose up -d --build
     ensure_db_exists
+    echo -e "${BLUE}Aplicando migraciones pendientes de Alembic...${NC}"
+    docker compose exec -T api alembic upgrade head || true
     echo -e "${GREEN}Servicios levantados correctamente.${NC}"
     echo -e "Frontend: ${YELLOW}http://localhost:${FRONTEND_PORT}${NC}"
     echo -e "Backend API: ${YELLOW}http://localhost:${API_PORT}/api/v1/health${NC}"
