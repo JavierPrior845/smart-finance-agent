@@ -41,6 +41,7 @@ services:
       - "${API_PORT:-8000}:8000"
     volumes:
       - ./backend/alembic:/app/alembic
+      - ./backend/src:/app/src
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -77,6 +78,8 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME:-smartfinance}-worker
     restart: always
     command: arq src.infrastructure.adapters.tasks.worker.WorkerSettings
+    volumes:
+      - ./backend/src:/app/src
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
