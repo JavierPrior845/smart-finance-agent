@@ -1,9 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, History, Inbox, Settings } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, History, Inbox, Settings, LogOut, User } from 'lucide-react';
 import clsx from 'clsx';
+import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
 
 export function Sidebar() {
+  const { user, logout } = useAuth();
+
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/budgets', icon: PiggyBank, label: 'Presupuestos' },
@@ -37,6 +40,25 @@ export function Sidebar() {
           <Settings size={20} />
           <span>Configuración</span>
         </NavLink>
+
+        {user && (
+          <div className="user-profile-section">
+            <div className="user-avatar-badge">
+              <User size={16} />
+            </div>
+            <div className="user-details">
+              <span className="user-name">{user.name}</span>
+              <span className="user-role">{user.role.toUpperCase()}</span>
+            </div>
+            <button
+              onClick={logout}
+              className="btn-logout"
+              title="Cerrar Sesión"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Exit on error
+# Exit on error (except where explicitly handled)
 set -e
 
 # Color definitions
@@ -27,6 +27,11 @@ parse_args() {
                 IS_DEV=1
                 shift
                 ;;
+            dev)
+                COMMAND="dev"
+                IS_DEV=1
+                shift
+                ;;
             start|stop|restart|logs|status|migrate|consolidate-migrations|sync-prod-migrations|help)
                 COMMAND="$1"
                 shift
@@ -50,8 +55,9 @@ show_help() {
     echo "Uso: ./manage.sh <comando> [opciones]"
     echo ""
     echo "Comandos disponibles:"
-    echo "  start                   Levanta todos los servicios en segundo plano"
-    echo "  stop                    Detiene todos los servicios"
+    echo "  dev                     Levanta DB/Redis en Docker y corre Backend y Frontend en local (Modo DEV)"
+    echo "  start                   Levanta todos los servicios en contenedores Docker (Modo PRODUCCIÓN)"
+    echo "  stop                    Detiene todos los servicios / contenedores"
     echo "  restart                 Reinicia los servicios"
     echo "  status                  Muestra el estado de los contenedores"
     echo "  logs [servicio]         Muestra los logs en tiempo real (ej. ./manage.sh logs api)"
@@ -61,44 +67,47 @@ show_help() {
     echo "  help                    Muestra esta ayuda"
     echo ""
     echo "Opciones:"
-    echo "  --dev, -d               Ejecuta la acción en el entorno de desarrollo aislado (puertos distintos, BD dev)"
+    echo "  --dev, -d               Aplica la acción en el entorno de desarrollo aislado (BD smart_finance_dev)"
     echo ""
     echo "Ejemplos:"
-    echo "  ./manage.sh start --dev"
-    echo "  ./manage.sh logs api -d"
-    echo "  ./manage.sh stop"
+    echo "  ./manage.sh dev           # Inicia el entorno de desarrollo local con recarga rápida"
+    echo "  ./manage.sh start         # Inicia todo el stack encapsulado en Docker (producción)"
+    echo "  ./manage.sh migrate -d    # Aplica migraciones a la BD de desarrollo"
+    echo "  ./manage.sh stop          # Detiene los contenedores de Docker"
 }
 
 export_env_vars() {
-    if [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/backend/.env.dev" ]]; then
-        set -a
-        source "$PROJECT_ROOT/backend/.env.dev"
-        set +a
-    elif [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/.env.dev" ]]; then
+    if [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/.env.dev" ]]; then
         set -a
         source "$PROJECT_ROOT/.env.dev"
         set +a
-    elif [[ -f "$PROJECT_ROOT/backend/.env" ]]; then
+    elif [[ $IS_DEV -eq 1 ]] && [[ -f "$PROJECT_ROOT/backend/.env.dev" ]]; then
         set -a
-        source "$PROJECT_ROOT/backend/.env"
+        source "$PROJECT_ROOT/backend/.env.dev"
         set +a
     elif [[ -f "$PROJECT_ROOT/.env" ]]; then
         set -a
         source "$PROJECT_ROOT/.env"
         set +a
+    elif [[ -f "$PROJECT_ROOT/backend/.env" ]]; then
+        set -a
+        source "$PROJECT_ROOT/backend/.env"
+        set +a
     fi
 
+    export COMPOSE_PROJECT_NAME="smart-finance-agent"
+
     if [[ $IS_DEV -eq 1 ]]; then
-        echo -e "${YELLOW}>>> Modo DESARROLLO activado (--dev)${NC}"
-        export COMPOSE_PROJECT_NAME="smartfinance-dev"
-        export POSTGRES_DB="${POSTGRES_DB:-smart_finance_dev}"
-        export POSTGRES_PORT="${POSTGRES_DEV_PORT:-5433}"
-        export REDIS_PORT="${REDIS_DEV_PORT:-6380}"
-        export API_PORT="${API_DEV_PORT:-8001}"
-        export FRONTEND_PORT="${FRONTEND_DEV_PORT:-3001}"
+        echo -e "${YELLOW}>>> Modo DESARROLLO activado (Base de Datos: smart_finance_dev)${NC}"
+        export POSTGRES_DB="smart_finance_dev"
+        export POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+        export REDIS_PORT="${REDIS_PORT:-6379}"
+        export REDIS_URL="${REDIS_URL:-redis://localhost:6379/1}"
+        export DATABASE_URL="${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}}"
+        export API_PORT="${API_PORT:-8000}"
+        export FRONTEND_PORT="${FRONTEND_PORT:-5173}"
     else
-        echo -e "${GREEN}>>> Modo PRODUCCIÓN activado${NC}"
-        export COMPOSE_PROJECT_NAME="smartfinance"
+        echo -e "${GREEN}>>> Modo PRODUCCIÓN activado (Base de Datos: smart_finance)${NC}"
         export POSTGRES_DB="${POSTGRES_DB:-smart_finance}"
         export POSTGRES_PORT="${POSTGRES_PORT:-5432}"
         export REDIS_PORT="${REDIS_PORT:-6379}"
@@ -109,7 +118,92 @@ export_env_vars() {
 
 ensure_db_exists() {
     echo -e "${BLUE}Verificando existencia de la base de datos '${POSTGRES_DB}'...${NC}"
+    until docker compose exec -T db pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; do
+        sleep 1
+    done
     docker compose exec -T db psql -U "${POSTGRES_USER:-postgres}" -c "CREATE DATABASE ${POSTGRES_DB};" 2>/dev/null || true
+}
+
+start_dev_local() {
+    export IS_DEV=1
+    export_env_vars
+
+    echo -e "${BLUE}1. Levantando infraestructura en Docker (PostgreSQL y Redis)...${NC}"
+    docker compose up -d db redis
+
+    ensure_db_exists
+
+    echo -e "${BLUE}2. Verificando entorno virtual de Python en backend...${NC}"
+    if [[ ! -d "$PROJECT_ROOT/backend/venv" ]]; then
+        echo -e "${YELLOW}Creando venv en backend/venv...${NC}"
+        python3 -m venv "$PROJECT_ROOT/backend/venv"
+        "$PROJECT_ROOT/backend/venv/bin/pip" install -r "$PROJECT_ROOT/backend/requirements.txt"
+    fi
+
+    echo -e "${BLUE}3. Aplicando migraciones de Alembic sobre '${POSTGRES_DB}'...${NC}"
+    (
+        cd "$PROJECT_ROOT/backend"
+        source venv/bin/activate
+        DATABASE_URL="$DATABASE_URL" alembic upgrade head
+    )
+
+    echo -e "${BLUE}4. Verificando dependencias de frontend (node_modules)...${NC}"
+    if [[ ! -d "$PROJECT_ROOT/frontend/node_modules" ]]; then
+        echo -e "${YELLOW}Instalando paquetes de frontend con npm install...${NC}"
+        (cd "$PROJECT_ROOT/frontend" && npm install)
+    fi
+
+    echo ""
+    echo -e "${GREEN}================================================================${NC}"
+    echo -e "${GREEN}🚀 Entorno de desarrollo LOCAL activo${NC}"
+    echo -e "   - Base de Datos:  ${YELLOW}${POSTGRES_DB}${NC} (PostgreSQL en Docker :${POSTGRES_PORT})"
+    echo -e "   - Redis:          ${YELLOW}localhost:${REDIS_PORT}${NC} (en Docker)"
+    echo -e "   - Backend API:    ${YELLOW}http://localhost:8000${NC} (Docs: http://localhost:8000/docs)"
+    echo -e "   - Frontend Web:   ${YELLOW}http://localhost:5173${NC}"
+    echo -e "   - Pulsa ${RED}Ctrl + C${NC} para detener los servidores locales."
+    echo -e "${GREEN}================================================================${NC}"
+    echo ""
+
+    cleanup() {
+        trap - SIGINT SIGTERM EXIT
+        echo ""
+        echo -e "${YELLOW}Deteniendo servidores locales (Backend y Frontend)...${NC}"
+        if [[ -n "$BACKEND_PID" ]]; then
+            kill -TERM "$BACKEND_PID" 2>/dev/null || true
+        fi
+        if [[ -n "$FRONTEND_PID" ]]; then
+            kill -TERM "$FRONTEND_PID" 2>/dev/null || true
+        fi
+        wait "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
+        echo -e "${GREEN}Servidores locales detenidos correctamente.${NC}"
+        echo -e "${BLUE}(Nota: Los contenedores de BD y Redis siguen activos en segundo plano. Usa './manage.sh stop' si deseas apagarlos).${NC}"
+        exit 0
+    }
+
+    trap cleanup SIGINT SIGTERM EXIT
+
+    # Lanzar Backend en segundo plano
+    (
+        cd "$PROJECT_ROOT/backend"
+        source venv/bin/activate
+        export DATABASE_URL="$DATABASE_URL"
+        export ENVIRONMENT="development"
+        export POSTGRES_DB="$POSTGRES_DB"
+        export REDIS_URL="$REDIS_URL"
+        exec uvicorn src.main:app --reload --port 8000
+    ) &
+    BACKEND_PID=$!
+
+    # Lanzar Frontend en segundo plano
+    (
+        cd "$PROJECT_ROOT/frontend"
+        export VITE_API_BASE_URL="http://localhost:8000/api/v1"
+        exec npm run dev
+    ) &
+    FRONTEND_PID=$!
+
+    # Esperar a que los procesos finalicen o se reciba Ctrl+C
+    wait
 }
 
 start_services() {
@@ -117,9 +211,11 @@ start_services() {
     echo -e "${BLUE}Levantando contenedores de Docker...${NC}"
     docker compose up -d --build
     ensure_db_exists
+    echo -e "${BLUE}Aplicando migraciones pendientes de Alembic...${NC}"
+    docker compose exec -T api alembic upgrade head || true
     echo -e "${GREEN}Servicios levantados correctamente.${NC}"
     echo -e "Frontend: ${YELLOW}http://localhost:${FRONTEND_PORT}${NC}"
-    echo -e "Backend API: ${YELLOW}http://localhost:${API_PORT}/api/v1/health${NC}"
+    echo -e "Backend API: ${YELLOW}http://localhost:${API_PORT}/health${NC}"
     echo -e "PostgreSQL: ${YELLOW}localhost:${POSTGRES_PORT} (BD: ${POSTGRES_DB})${NC}"
 }
 
@@ -148,8 +244,16 @@ show_logs() {
 run_migrations() {
     export_env_vars
     ensure_db_exists
-    echo -e "${BLUE}Ejecutando migraciones de Alembic...${NC}"
-    docker compose exec api alembic upgrade head
+    echo -e "${BLUE}Ejecutando migraciones de Alembic en ${POSTGRES_DB}...${NC}"
+    if [[ $IS_DEV -eq 1 ]]; then
+        (
+            cd "$PROJECT_ROOT/backend"
+            source venv/bin/activate
+            DATABASE_URL="$DATABASE_URL" alembic upgrade head
+        )
+    else
+        docker compose exec api alembic upgrade head
+    fi
     echo -e "${GREEN}Migraciones aplicadas con éxito.${NC}"
 }
 
@@ -198,8 +302,15 @@ sync_prod_migrations() {
 parse_args "$@"
 
 case "$COMMAND" in
+    dev)
+        start_dev_local
+        ;;
     start)
-        start_services
+        if [[ $IS_DEV -eq 1 ]]; then
+            start_dev_local
+        else
+            start_services
+        fi
         ;;
     stop)
         stop_services

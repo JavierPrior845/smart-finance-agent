@@ -7,6 +7,8 @@ from .merchant_rule import MerchantRuleORM
 from .investment import InvestmentAssetORM, InvestmentMovementORM
 from .setting import AppSettingORM
 
+from .user import UserORM
+
 __all__ = [
     "Base",
     "AccountORM",
@@ -16,5 +18,6 @@ __all__ = [
     "MerchantRuleORM",
     "InvestmentAssetORM",
     "InvestmentMovementORM",
-    "AppSettingORM"
+    "AppSettingORM",
+    "UserORM"
 ]

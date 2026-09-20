@@ -1,9 +1,22 @@
-import { useState, useEffect } from 'react';
-import { Key, Target, Loader2, Save, Trash2, Plus, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Key, Target, Loader2, Save, Trash2, Plus, X, Shield, Users, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import './Pages.css';
 
+interface InstanceUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at?: string;
+  last_login_at?: string;
+}
+
 export default function Settings() {
+  const { user: currentUser } = useAuth();
   const [targetSavingsRate, setTargetSavingsRate] = useState<string>("50.0");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,6 +28,13 @@ export default function Settings() {
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [ruleData, setRuleData] = useState({ pattern: '', category_id: '', priority: '1' });
   const [creatingRule, setCreatingRule] = useState(false);
+
+  // States for User Management (Admin Only)
+  const [users, setUsers] = useState<InstanceUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userData, setUserData] = useState({ name: '', email: '', password: '' });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,8 +54,23 @@ export default function Settings() {
         setRulesLoading(false);
       }
     };
+
+    const fetchUsers = async () => {
+      if (currentUser?.role === 'admin') {
+        try {
+          const res = await api.get('/auth/users');
+          setUsers(res.data);
+        } catch (err) {
+          console.error("Error al cargar lista de usuarios", err);
+        } finally {
+          setUsersLoading(false);
+        }
+      }
+    };
+
     fetchData();
-  }, []);
+    fetchUsers();
+  }, [currentUser]);
 
   const handleSaveSavingsRate = async () => {
     setSaving(true);
@@ -81,12 +116,40 @@ export default function Settings() {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userData.name || !userData.email || !userData.password) return;
+    setCreatingUser(true);
+    try {
+      const res = await api.post('/auth/users', userData);
+      setUsers([...users, res.data]);
+      setUserData({ name: '', email: '', password: '' });
+      setShowUserModal(false);
+      toast.success(`Usuario ${res.data.name} creado correctamente`);
+    } catch (err) {
+      console.error("Error al crear usuario", err);
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar al usuario "${userName}"?`)) return;
+    try {
+      await api.delete(`/auth/users/${userId}`);
+      setUsers(users.filter(u => u.id !== userId));
+      toast.success(`Usuario "${userName}" eliminado`);
+    } catch (err) {
+      console.error("Error al eliminar usuario", err);
+    }
+  };
+
   return (
     <div className="view-container">
       <div className="view-header">
         <div>
           <h1 className="page-title">Configuración</h1>
-          <p className="page-subtitle">Gestiona automatizaciones y ajustes del sistema</p>
+          <p className="page-subtitle">Gestiona usuarios, automatizaciones y ajustes del sistema</p>
         </div>
       </div>
 
@@ -142,7 +205,96 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="glass-panel" style={{ padding: '24px' }}>
+      {/* Sección Gestión de Usuarios (Self-Hosted Admin Control) */}
+      {currentUser?.role === 'admin' && (
+        <div className="glass-panel" style={{ padding: '24px', marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <Users size={20} /> Usuarios y Accesos a la Instancia
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Como administrador, puedes invitar a otros miembros o crear cuentas secundarias de forma privada.
+              </p>
+            </div>
+            <button className="glass-button primary" onClick={() => setShowUserModal(true)}>
+              <UserPlus size={18} style={{ marginRight: '6px' }} /> Nuevo Usuario
+            </button>
+          </div>
+
+          {usersLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+              <Loader2 className="spin" size={24} />
+            </div>
+          ) : users.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No hay usuarios adicionales registrados.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Correo Electrónico</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Último Acceso</th>
+                    <th style={{ textAlign: 'right' }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id}>
+                      <td style={{ fontWeight: 600 }}>{u.name}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        <span
+                          className="cat-badge"
+                          style={{
+                            backgroundColor: u.role === 'admin' ? 'rgba(138, 43, 226, 0.25)' : 'rgba(0, 245, 212, 0.2)',
+                            color: u.role === 'admin' ? 'var(--color-primary-light)' : 'var(--color-secondary)',
+                            border: `1px solid ${u.role === 'admin' ? 'var(--color-primary)' : 'var(--color-secondary)'}`
+                          }}
+                        >
+                          {u.role.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ color: u.is_active ? 'var(--color-success)' : 'var(--color-danger)', fontSize: '0.85rem' }}>
+                          {u.is_active ? '● Activo' : '○ Inactivo'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {u.last_login_at ? new Date(u.last_login_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'Nunca'}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {u.id !== currentUser.id ? (
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.name)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--color-danger)',
+                              cursor: 'pointer',
+                              opacity: 0.8
+                            }}
+                            title="Eliminar Usuario"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Tu cuenta)</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="glass-panel" style={{ padding: '24px', marginTop: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h3>Reglas de Categorización (Comercios)</h3>
           <button className="glass-button" onClick={() => setShowRuleModal(true)}>
@@ -209,6 +361,76 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      {/* Modal Nuevo Usuario (Admin Only) */}
+      {showUserModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="glass-panel" style={{ width: '420px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Shield size={20} /> Crear Usuario de Acceso
+              </h3>
+              <button onClick={() => setShowUserModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <UserIcon size={15} /> Nombre Completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Nombre Familiar / Pareja"
+                  value={userData.name}
+                  onChange={e => setUserData({ ...userData, name: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={15} /> Correo Electrónico
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="usuario@smartfinance.local"
+                  value={userData.email}
+                  onChange={e => setUserData({ ...userData, email: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={15} /> Contraseña de Acceso
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="Mínimo 6 caracteres"
+                  value={userData.password}
+                  onChange={e => setUserData({ ...userData, password: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <button type="submit" className="glass-button primary" style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }} disabled={creatingUser}>
+                {creatingUser ? <Loader2 className="spin" size={20} /> : 'Crear Usuario'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Nueva Regla */}
       {showRuleModal && (

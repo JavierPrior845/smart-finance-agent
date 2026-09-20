@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from sqlalchemy import select, func, or_, extract
+from sqlalchemy import select, func, or_, extract, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.ports.transaction_repository import TransactionRepository
@@ -153,3 +153,13 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         )
         result = await self.session.execute(stmt)
         return [self._to_domain(orm) for orm in result.scalars().all()]
+
+    async def dismiss_anomaly(self, transaction_id: UUID) -> bool:
+        stmt = (
+            update(TransactionORM)
+            .where(TransactionORM.id == transaction_id)
+            .values(is_anomalous=False)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return (result.rowcount or 0) > 0

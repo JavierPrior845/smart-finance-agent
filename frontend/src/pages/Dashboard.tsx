@@ -6,6 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Legend 
 } from 'recharts';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 import './Pages.css';
 
 export default function Dashboard() {
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [netWorthData, setNetWorthData] = useState<any[]>([]);
   const [syncingInvestments, setSyncingInvestments] = useState(false);
   const [anomalies, setAnomalies] = useState<any[]>([]);
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -72,6 +74,20 @@ export default function Dashboard() {
       console.error("Error syncing investments", error);
     } finally {
       setSyncingInvestments(false);
+    }
+  };
+
+  const handleDismissAnomaly = async (id: string) => {
+    try {
+      setDismissingId(id);
+      await api.delete(`/analytics/anomalies/${id}`);
+      setAnomalies((prev) => prev.filter((tx) => tx.id !== id));
+      toast.success('Gasto atípico descartado');
+    } catch (error) {
+      console.error('Error al descartar la anomalía:', error);
+      toast.error('No se pudo descartar la anomalía');
+    } finally {
+      setDismissingId(null);
     }
   };
 
@@ -190,8 +206,44 @@ export default function Dashboard() {
                           <span style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>Importe supera el comportamiento de gasto típico</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-danger)' }}>
-                        -€{Math.abs(tx.amount).toFixed(2)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-danger)' }}>
+                          -€{Math.abs(tx.amount).toFixed(2)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDismissAnomaly(tx.id)}
+                          disabled={dismissingId === tx.id}
+                          title="Descartar alerta de gasto atípico"
+                          style={{
+                            background: 'rgba(255, 71, 87, 0.08)',
+                            border: '1px solid rgba(255, 71, 87, 0.25)',
+                            color: 'var(--color-danger)',
+                            borderRadius: '6px',
+                            width: '30px',
+                            height: '30px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: dismissingId === tx.id ? 'not-allowed' : 'pointer',
+                            opacity: dismissingId === tx.id ? 0.6 : 1,
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (dismissingId !== tx.id) {
+                              e.currentTarget.style.background = 'rgba(255, 71, 87, 0.22)';
+                              e.currentTarget.style.borderColor = 'var(--color-danger)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (dismissingId !== tx.id) {
+                              e.currentTarget.style.background = 'rgba(255, 71, 87, 0.08)';
+                              e.currentTarget.style.borderColor = 'rgba(255, 71, 87, 0.25)';
+                            }
+                          }}
+                        >
+                          {dismissingId === tx.id ? <Loader2 size={14} className="animate-spin" /> : <X size={15} />}
+                        </button>
                       </div>
                     </div>
                   );
