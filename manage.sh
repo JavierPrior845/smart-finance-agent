@@ -95,6 +95,8 @@ export_env_vars() {
         set +a
     fi
 
+    export COMPOSE_PROJECT_NAME="smart-finance-agent"
+
     if [[ $IS_DEV -eq 1 ]]; then
         echo -e "${YELLOW}>>> Modo DESARROLLO activado (Base de Datos: smart_finance_dev)${NC}"
         export POSTGRES_DB="smart_finance_dev"
@@ -106,7 +108,6 @@ export_env_vars() {
         export FRONTEND_PORT="${FRONTEND_PORT:-5173}"
     else
         echo -e "${GREEN}>>> Modo PRODUCCIÓN activado (Base de Datos: smart_finance)${NC}"
-        export COMPOSE_PROJECT_NAME="smartfinance"
         export POSTGRES_DB="${POSTGRES_DB:-smart_finance}"
         export POSTGRES_PORT="${POSTGRES_PORT:-5432}"
         export REDIS_PORT="${REDIS_PORT:-6379}"
