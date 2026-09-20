@@ -20,6 +20,10 @@ async def lifespan(app: FastAPI):
         bot_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
     else:
         logger.info("Telegram Bot will not start (no token provided).")
+
+    # Warm up LocalEmbedder in a background thread so first transaction has zero cold-start latency
+    from src.infrastructure.adapters.ai.embeddings import LocalEmbedder
+    asyncio.create_task(asyncio.to_thread(LocalEmbedder.warmup))
         
     yield
     

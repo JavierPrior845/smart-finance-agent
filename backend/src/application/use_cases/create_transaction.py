@@ -3,8 +3,11 @@ from datetime import datetime
 from src.application.ports.transaction_repository import TransactionRepository
 from src.application.ports.account_repository import AccountRepository
 from src.domain.models.transaction import Transaction, TransactionType
-
 from src.application.ports.category_repository import CategoryRepository
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreateTransactionUseCase:
     def __init__(self, transaction_repo: TransactionRepository, account_repo: AccountRepository, category_repo: CategoryRepository):
@@ -84,9 +87,13 @@ class CreateTransactionUseCase:
         embedding = None
         if description:
             try:
-                embedding = LocalEmbedder.get_embedding(description)
-            except Exception:
-                pass
+                embedding = await asyncio.wait_for(
+                    asyncio.to_thread(LocalEmbedder.get_embedding, description),
+                    timeout=3.0
+                )
+            except Exception as e:
+                logger.warning(f"Could not compute embedding for transaction in time: {e}")
+                embedding = None
 
         transaction = Transaction(
             account_id=resolved_account_id,
