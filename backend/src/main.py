@@ -17,6 +17,10 @@ async def lifespan(app: FastAPI):
     
     if bot:
         logger.info("Starting Telegram Bot Polling...")
+        try:
+            await bot.delete_webhook(drop_pending_updates=False)
+        except Exception as e:
+            logger.warning(f"Could not delete webhook prior to polling: {e}")
         bot_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
     else:
         logger.info("Telegram Bot will not start (no token provided).")

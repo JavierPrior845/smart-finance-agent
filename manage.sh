@@ -164,6 +164,7 @@ start_dev_local() {
     echo ""
 
     cleanup() {
+        trap - SIGINT SIGTERM EXIT
         echo ""
         echo -e "${YELLOW}Deteniendo servidores locales (Backend y Frontend)...${NC}"
         if [[ -n "$BACKEND_PID" ]]; then
