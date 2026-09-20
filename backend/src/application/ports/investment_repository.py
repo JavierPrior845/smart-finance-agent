@@ -29,6 +29,10 @@ class InvestmentRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_movements_by_asset(self, asset_id: UUID) -> List[InvestmentMovement]:
+        pass
+
+    @abstractmethod
     async def get_latest_snapshot_date(self, asset_id: UUID) -> date | None:
         pass
 

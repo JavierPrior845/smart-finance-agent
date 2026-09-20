@@ -24,7 +24,9 @@ class TransactionRepository(ABC):
         offset: int = 0, 
         search: str | None = None,
         category_id: UUID | None = None,
-        source: str | None = None
+        source: str | None = None,
+        month: int | None = None,
+        year: int | None = None
     ) -> tuple[List[Transaction], int]:
         pass
 

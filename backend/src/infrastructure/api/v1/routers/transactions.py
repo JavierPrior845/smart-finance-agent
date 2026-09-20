@@ -25,6 +25,8 @@ async def list_transactions(
     search: Optional[str] = None,
     category_id: Optional[UUID] = None,
     source: Optional[str] = None,
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2000, le=2100),
     repo: TransactionRepository = Depends(get_transaction_repo)
 ):
     """Get a paginated list of transactions with optional filters."""
@@ -33,7 +35,9 @@ async def list_transactions(
         offset=offset,
         search=search,
         category_id=category_id,
-        source=source
+        source=source,
+        month=month,
+        year=year
     )
     return {"items": items, "total": total}
 

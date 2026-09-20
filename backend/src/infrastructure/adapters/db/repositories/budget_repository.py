@@ -65,25 +65,34 @@ class SQLAlchemyBudgetRepository(BudgetRepository):
         next_year = year if month < 12 else year + 1
         end_date = datetime(next_year, next_month, 1, tzinfo=timezone.utc)
 
-        # Build subquery to get total spent/earned per category in that month
-        # Notice we take abs(amount) for expenses because they are stored as negative in DB,
-        # but for income we take positive amount.
+        # Build subquery to get net spent/earned per category in that month
         spent_subq = select(
             TransactionORM.category_id,
             func.sum(
                 case(
-                    (CategoryORM.type == 'INCOME', TransactionORM.amount),
-                    else_=func.abs(TransactionORM.amount)
+                    (
+                        CategoryORM.type == 'EXPENSE',
+                        case(
+                            (TransactionORM.type == 'EXPENSE', func.abs(TransactionORM.amount)),
+                            (TransactionORM.type == 'INCOME', -TransactionORM.amount),
+                            else_=0
+                        )
+                    ),
+                    (
+                        CategoryORM.type == 'INCOME',
+                        case(
+                            (TransactionORM.type == 'INCOME', TransactionORM.amount),
+                            (TransactionORM.type == 'EXPENSE', -func.abs(TransactionORM.amount)),
+                            else_=0
+                        )
+                    ),
+                    else_=0
                 )
             ).label("spent")
         ).join(
             CategoryORM, TransactionORM.category_id == CategoryORM.id
         ).where(
             and_(
-                or_(
-                    and_(CategoryORM.type == 'INCOME', TransactionORM.type == 'INCOME'),
-                    and_(CategoryORM.type == 'EXPENSE', TransactionORM.type == 'EXPENSE')
-                ),
                 TransactionORM.transaction_date >= start_date,
                 TransactionORM.transaction_date < end_date,
                 TransactionORM.category_id.isnot(None)

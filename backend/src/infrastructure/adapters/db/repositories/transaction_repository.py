@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.ports.transaction_repository import TransactionRepository
@@ -83,7 +83,9 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         offset: int = 0, 
         search: str | None = None,
         category_id: UUID | None = None,
-        source: str | None = None
+        source: str | None = None,
+        month: int | None = None,
+        year: int | None = None
     ) -> tuple[List[Transaction], int]:
         
         conditions = []
@@ -93,6 +95,10 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
             conditions.append(TransactionORM.category_id == category_id)
         if source:
             conditions.append(TransactionORM.source == source)
+        if month:
+            conditions.append(extract('month', TransactionORM.transaction_date) == month)
+        if year:
+            conditions.append(extract('year', TransactionORM.transaction_date) == year)
             
         base_stmt = select(TransactionORM)
         count_stmt = select(func.count(TransactionORM.id))
