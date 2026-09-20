@@ -215,7 +215,7 @@ start_services() {
     docker compose exec -T api alembic upgrade head || true
     echo -e "${GREEN}Servicios levantados correctamente.${NC}"
     echo -e "Frontend: ${YELLOW}http://localhost:${FRONTEND_PORT}${NC}"
-    echo -e "Backend API: ${YELLOW}http://localhost:${API_PORT}/api/v1/health${NC}"
+    echo -e "Backend API: ${YELLOW}http://localhost:${API_PORT}/health${NC}"
     echo -e "PostgreSQL: ${YELLOW}localhost:${POSTGRES_PORT} (BD: ${POSTGRES_DB})${NC}"
 }
 
