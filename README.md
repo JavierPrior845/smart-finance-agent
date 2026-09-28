@@ -28,6 +28,7 @@ Unlike naïve LLM-wrapper applications, all accounting calculations, budget trac
   - **Structured NLU:** `Ollama` (`llama3.2:3b` / `qwen2.5-coder:1.5b`) using `instructor` for schema validation.
 - 🤝 **Human-in-the-Loop Confirmation:** Interactive Telegram inline keyboards (`[ ✅ Confirmar ]` / `[ ❌ Cancelar ]`) to review extracted drafts before database insertion.
 - 🏦 **Smart Default Resolution:** Automatically matches extracted accounts and categories with existing PostgreSQL records or falls back to your main account.
+- 🔌 **Model Context Protocol (MCP) Server:** Decoupled agentic interface to interact with your finances from external AI assistants (Claude Desktop, Cursor, Antigravity) with zero direct database exposure.
 - 🏛️ **Hexagonal Architecture (Ports & Adapters):** Core domain fully isolated from external frameworks, Telegram APIs, and AI models for maximum testability.
 
 ---
@@ -78,6 +79,7 @@ Unlike naïve LLM-wrapper applications, all accounting calculations, budget trac
 | **Task Queue & Cache** | Redis 7 + ARQ | Event-driven background worker queue for audio transcription and Redis draft state storage. |
 | **Speech-to-Text** | `faster-whisper` (Local CPU) | Sub-second offline transcription for Spanish/multilingual voice notes. |
 | **Local LLM Engine** | Ollama (`llama3.2:3b` / `qwen2.5-coder:1.5b`) | Zero-cost, 100% private structured JSON data extraction. |
+| **Agentic Protocol** | Model Context Protocol (FastMCP) | Standardized JSON-RPC tools interface for external AI assistants via `stdio`. |
 | **Containerization** | Docker & Docker Compose | Multi-container orchestration (FastAPI, Postgres, Redis, ARQ Worker, Web UI). |
 
 ---
@@ -148,6 +150,28 @@ In separate terminal windows:
   cd frontend
   npm run dev
   ```
+
+---
+
+## 🤖 AI Agent Integration (MCP Server)
+
+Smart Finance Agent includes a dedicated **Model Context Protocol (MCP)** server located in [`mcp_server/`](mcp_server/). It enables AI clients (such as **Claude Desktop**, **Antigravity IDE**, and **Cursor**) to query and manage personal finances through natural language tools (creating transactions, checking balances, comparing months, monitoring budgets, and spotting anomalies) without exposing the database directly.
+
+### Quick Start:
+```bash
+cd mcp_server
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+### Visual Testing:
+Test tools interactively via the official web-based **MCP Inspector**:
+```bash
+npx @modelcontextprotocol/inspector .venv/bin/python main.py
+```
+
+For full documentation and client configurations, refer to [`mcp_server/README.md`](mcp_server/README.md).
 
 ---
 
