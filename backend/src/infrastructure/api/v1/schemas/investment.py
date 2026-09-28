@@ -12,12 +12,14 @@ class InvestmentCreate(BaseModel):
     units_qty: Optional[float] = Field(None, json_schema_extra={"example": 0.015})
     average_buy_price: Optional[float] = Field(None, json_schema_extra={"example": 66000.0})
     source_account_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
 
 class InvestmentBuyMore(BaseModel):
     units: float = Field(..., gt=0, json_schema_extra={"example": 0.01})
     unit_price: float = Field(..., gt=0, json_schema_extra={"example": 67000.0})
     notes: Optional[str] = None
     source_account_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
 
 class InvestmentSellPartial(BaseModel):
     units: float = Field(..., gt=0, json_schema_extra={"example": 0.005})
