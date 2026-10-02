@@ -54,6 +54,11 @@ async def seed():
                 value="EUR",
                 description="Moneda principal del sistema",
             ),
+            AppSettingORM(
+                key="default_investment_category_id",
+                value="",
+                description="Categoría por defecto para compras de inversión",
+            ),
         ]
         session.add_all(settings)
         await session.flush()

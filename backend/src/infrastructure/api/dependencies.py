@@ -53,11 +53,18 @@ def get_sync_investments_use_case(
 ) -> SyncInvestmentsUseCase:
     return SyncInvestmentsUseCase(investment_repo)
 
+from src.infrastructure.adapters.db.repositories.setting_repository import SettingRepository
+
+def get_setting_repo(session: AsyncSession = Depends(get_db_session)) -> SettingRepository:
+    return SettingRepository(session)
+
 def get_manage_investment_use_case(
     investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo),
-    create_transaction_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case)
+    create_transaction_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case),
+    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo),
+    setting_repo: SettingRepository = Depends(get_setting_repo),
 ) -> ManageInvestmentUseCase:
-    return ManageInvestmentUseCase(investment_repo, create_transaction_use_case)
+    return ManageInvestmentUseCase(investment_repo, create_transaction_use_case, category_repo, setting_repo)
 
 from src.infrastructure.adapters.db.repositories.merchant_rule_repository import SQLAlchemyMerchantRuleRepository
 from src.application.use_cases.manage_merchant_rules import ManageMerchantRulesUseCase

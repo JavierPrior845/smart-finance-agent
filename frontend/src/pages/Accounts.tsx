@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown, Info, Sparkles, Tag } from 'lucide-react';
 import api from '../services/api';
 import './Pages.css';
 
@@ -17,6 +17,8 @@ interface InvestmentMovement {
 export default function Accounts() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [investments, setInvestments] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [defaultInvCategoryId, setDefaultInvCategoryId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   
   // Modales Cuentas & Nueva Inversión
@@ -30,7 +32,7 @@ export default function Accounts() {
   
   // Modal Comprar Más (DCA)
   const [showBuyMoreModal, setShowBuyMoreModal] = useState(false);
-  const [buyMoreData, setBuyMoreData] = useState({ units: '', unit_price: '', notes: '', source_account_id: '' });
+  const [buyMoreData, setBuyMoreData] = useState({ units: '', unit_price: '', notes: '', source_account_id: '', category_id: '' });
   const [savingBuyMore, setSavingBuyMore] = useState(false);
 
   // Modal Vender (Parcial o Total)
@@ -59,18 +61,34 @@ export default function Accounts() {
     invested_amount: '0',
     units_qty: '0',
     average_buy_price: '0',
-    source_account_id: ''
+    source_account_id: '',
+    category_id: ''
   });
+
+  const getResolvedDefaultCategory = () => {
+    if (defaultInvCategoryId) return defaultInvCategoryId;
+    const invCat = categories.find((c: any) => 
+      c.name.toLowerCase() === 'inversiones' || 
+      c.name.toLowerCase() === 'inversión' || 
+      c.name.toLowerCase() === 'inversion'
+    );
+    return invCat ? invCat.id : '';
+  };
 
   const fetchAccountsAndInvestments = async () => {
     try {
       setLoading(true);
-      const [accRes, invRes] = await Promise.all([
+      const [accRes, invRes, catRes, defaultCatRes] = await Promise.all([
         api.get('/accounts'),
-        api.get('/investments')
+        api.get('/investments'),
+        api.get('/categories').catch(() => ({ data: [] })),
+        api.get('/settings/default_investment_category_id').catch(() => ({ data: { value: '' } })),
       ]);
       setAccounts(accRes.data);
       setInvestments(invRes.data);
+      setCategories(catRes.data || []);
+      const defCatId = defaultCatRes.data?.value || '';
+      setDefaultInvCategoryId(defCatId);
     } catch (error) {
       console.error("Error fetching data", error);
     } finally {
@@ -128,10 +146,11 @@ export default function Accounts() {
         invested_amount: parseFloat(invFormData.invested_amount),
         units_qty: invFormData.units_qty ? parseFloat(invFormData.units_qty) : null,
         average_buy_price: invFormData.average_buy_price ? parseFloat(invFormData.average_buy_price) : null,
-        source_account_id: invFormData.source_account_id || null
+        source_account_id: invFormData.source_account_id || null,
+        category_id: invFormData.category_id || null
       });
       setShowInvModal(false);
-      setInvFormData({ name: '', ticker: '', asset_type: 'STOCK', broker: '', invested_amount: '0', units_qty: '0', average_buy_price: '0', source_account_id: '' });
+      setInvFormData({ name: '', ticker: '', asset_type: 'STOCK', broker: '', invested_amount: '0', units_qty: '0', average_buy_price: '0', source_account_id: '', category_id: '' });
       await fetchAccountsAndInvestments();
       await syncInvestments();
     } catch (error) {
@@ -152,11 +171,12 @@ export default function Accounts() {
         units: parseFloat(buyMoreData.units),
         unit_price: parseFloat(buyMoreData.unit_price),
         notes: buyMoreData.notes || null,
-        source_account_id: buyMoreData.source_account_id || null
+        source_account_id: buyMoreData.source_account_id || null,
+        category_id: buyMoreData.category_id || null
       });
       setShowBuyMoreModal(false);
       setSelectedAsset(null);
-      setBuyMoreData({ units: '', unit_price: '', notes: '', source_account_id: '' });
+      setBuyMoreData({ units: '', unit_price: '', notes: '', source_account_id: '', category_id: '' });
       await fetchAccountsAndInvestments();
     } catch (error) {
       console.error("Error buying more investment units", error);
@@ -220,7 +240,13 @@ export default function Accounts() {
             <Plus size={18} />
             Nueva Cuenta
           </button>
-          <button className="glass-button success" onClick={() => setShowInvModal(true)}>
+          <button 
+            className="glass-button success" 
+            onClick={() => {
+              setInvFormData(prev => ({ ...prev, category_id: prev.category_id || getResolvedDefaultCategory() }));
+              setShowInvModal(true);
+            }}
+          >
             <Plus size={18} />
             Nueva Inversión
           </button>
@@ -304,7 +330,11 @@ export default function Accounts() {
                           <button 
                             className="glass-button" 
                             style={{ padding: '4px 8px', fontSize: '12px', background: 'rgba(0, 255, 127, 0.15)', color: 'var(--color-success)', borderColor: 'rgba(0, 255, 127, 0.3)' }}
-                            onClick={() => { setSelectedAsset(inv); setShowBuyMoreModal(true); }}
+                            onClick={() => { 
+                              setSelectedAsset(inv); 
+                              setBuyMoreData(prev => ({ ...prev, category_id: getResolvedDefaultCategory() }));
+                              setShowBuyMoreModal(true); 
+                            }}
                             title="Comprar más unidades (DCA)"
                           >
                             <Plus size={14} /> Comprar
@@ -582,6 +612,60 @@ export default function Accounts() {
                   ))}
                 </select>
               </div>
+              <div className="input-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Tag size={15} /> Categoría Contable del Movimiento
+                </label>
+                <select 
+                  value={invFormData.category_id} 
+                  onChange={e => setInvFormData({...invFormData, category_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">-- Por defecto del sistema (Inversiones / Otros) --</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Banner informativo de flujo de caja e inversiones */}
+              <div style={{
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'flex-start',
+                fontSize: '0.82rem',
+                color: '#93c5fd'
+              }}>
+                <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>
+                  Esta compra registrará una salida de efectivo de tu cuenta para adquirir el activo.
+                  Clasificarla bajo <strong>"Inversiones"</strong> evita que infle tus gastos de consumo en el Dashboard y mantiene intacta tu tasa de ahorro.
+                </span>
+              </div>
+
+              {/* Aviso si es la primera inversión */}
+              {investments.length === 0 && (
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '0.82rem',
+                  color: '#6ee7b7'
+                }}>
+                  <Sparkles size={16} style={{ flexShrink: 0 }} />
+                  <span>
+                    ¡Primera inversión! Configura la categoría para que tus métricas de ahorro y patrimonio se mantengan limpias.
+                  </span>
+                </div>
+              )}
 
               <button 
                 type="submit" 
@@ -656,6 +740,22 @@ export default function Accounts() {
                   <option value="">Selecciona cuenta...</option>
                   {accounts.map(acc => (
                     <option key={acc.id} value={acc.id}>{acc.name} (€{acc.current_balance.toFixed(2)})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Tag size={15} /> Categoría Contable (Aporte DCA)
+                </label>
+                <select 
+                  value={buyMoreData.category_id} 
+                  onChange={e => setBuyMoreData({...buyMoreData, category_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">-- Por defecto del sistema (Inversiones / Otros) --</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
                   ))}
                 </select>
               </div>

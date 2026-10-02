@@ -145,3 +145,31 @@ async def test_investment_full_sale_closes_position():
     assert updated_asset.invested_amount == 0.0
     assert updated_asset.status == "CLOSED"
     assert updated_asset.realized_pnl == 200.0
+
+@pytest.mark.asyncio
+async def test_investment_creation_with_explicit_category():
+    class CaptureCreateTransactionUseCase:
+        def __init__(self):
+            self.last_kwargs = None
+
+        async def execute(self, **kwargs):
+            self.last_kwargs = kwargs
+
+    repo = MockInvestmentRepository()
+    mock_tx = CaptureCreateTransactionUseCase()
+    use_case = ManageInvestmentUseCase(repo, mock_tx)
+    custom_cat_id = uuid.uuid4()
+
+    data = InvestmentCreate(
+        name="Vanguard S&P 500",
+        ticker="VUSA",
+        asset_type="ETF",
+        broker="MyInvestor",
+        invested_amount=500.0,
+        category_id=custom_cat_id,
+    )
+    await use_case.create_investment(data)
+
+    assert mock_tx.last_kwargs is not None
+    assert mock_tx.last_kwargs["category_id"] == custom_cat_id
+    assert mock_tx.last_kwargs["amount"] == 500.0

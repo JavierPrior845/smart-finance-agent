@@ -1,7 +1,10 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from src.application.ports.investment_repository import InvestmentRepository
+from src.application.ports.category_repository import CategoryRepository
 from src.domain.models.investment import InvestmentAsset, InvestmentMovement
+from src.infrastructure.adapters.db.repositories.setting_repository import SettingRepository
 from src.infrastructure.api.v1.schemas.investment import (
     InvestmentCreate, 
     InvestmentClose, 
@@ -11,9 +14,43 @@ from src.infrastructure.api.v1.schemas.investment import (
 from src.application.use_cases.create_transaction import CreateTransactionUseCase
 
 class ManageInvestmentUseCase:
-    def __init__(self, repository: InvestmentRepository, create_tx_use_case: CreateTransactionUseCase):
+    def __init__(
+        self,
+        repository: InvestmentRepository,
+        create_tx_use_case: CreateTransactionUseCase,
+        category_repo: Optional[CategoryRepository] = None,
+        setting_repo: Optional[SettingRepository] = None,
+    ):
         self.repository = repository
         self.create_tx_use_case = create_tx_use_case
+        self.category_repo = category_repo
+        self.setting_repo = setting_repo
+
+    async def _resolve_category_id(self, provided_category_id: Optional[uuid.UUID]) -> Optional[uuid.UUID]:
+        """Resolves category ID with priority: explicit parameter -> app_settings -> category named 'Inversiones'."""
+        if provided_category_id:
+            return provided_category_id
+
+        # 1. Check if a default investment category is configured in settings
+        if self.setting_repo:
+            try:
+                setting = await self.setting_repo.get_setting("default_investment_category_id")
+                if setting and setting.value:
+                    return uuid.UUID(setting.value.strip())
+            except Exception as e:
+                print(f"Warning: Failed reading default_investment_category_id: {e}")
+
+        # 2. Check if a category named 'Inversiones' or 'Inversión' exists
+        if self.category_repo:
+            try:
+                all_cats = await self.category_repo.get_all()
+                inv_cat = next((c for c in all_cats if c.name.lower() in ("inversiones", "inversión", "inversion")), None)
+                if inv_cat:
+                    return inv_cat.id
+            except Exception as e:
+                print(f"Warning: Failed resolving category 'Inversiones': {e}")
+
+        return None
 
     async def create_investment(self, data: InvestmentCreate) -> InvestmentAsset:
         asset_id = uuid.uuid4()
@@ -61,6 +98,7 @@ class ManageInvestmentUseCase:
         await self.repository.create_movement(movement)
         
         # 3. Reflect the cash outflow from account if specified
+        resolved_category_id = await self._resolve_category_id(data.category_id)
         try:
             await self.create_tx_use_case.execute(
                 amount=data.invested_amount,
@@ -68,7 +106,8 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.source_account_id,
-                transaction_type="EXPENSE"
+                transaction_type="EXPENSE",
+                category_id=resolved_category_id
             )
         except Exception as e:
             print(f"Warning: Failed to create cashflow transaction: {e}")
@@ -113,6 +152,7 @@ class ManageInvestmentUseCase:
         await self.repository.create_movement(movement)
 
         # Cashflow expense
+        resolved_category_id = await self._resolve_category_id(data.category_id)
         try:
             await self.create_tx_use_case.execute(
                 amount=purchase_cost,
@@ -120,7 +160,8 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.source_account_id or asset.source_account_id,
-                transaction_type="EXPENSE"
+                transaction_type="EXPENSE",
+                category_id=resolved_category_id
             )
         except Exception as e:
             print(f"Warning: Failed to create cashflow transaction for buy_more: {e}")
