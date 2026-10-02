@@ -102,8 +102,8 @@ export_env_vars() {
         export POSTGRES_DB="smart_finance_dev"
         export POSTGRES_PORT="${POSTGRES_PORT:-5432}"
         export REDIS_PORT="${REDIS_PORT:-6379}"
-        export REDIS_URL="${REDIS_URL:-redis://localhost:6379/1}"
-        export DATABASE_URL="${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}}"
+        export REDIS_URL="redis://localhost:${REDIS_PORT}/1"
+        export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
         export API_PORT="${API_PORT:-8000}"
         export FRONTEND_PORT="${FRONTEND_PORT:-5173}"
     else
