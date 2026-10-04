@@ -53,9 +53,15 @@ class MockTransactionRepo:
     async def get_all_paginated(self, limit=20, offset=0, search=None, category_id=None, source=None, month=None, year=None):
         return [], 0
 
-app.dependency_overrides[get_create_transaction_use_case] = lambda: MockCreateTransactionUseCase()
-app.dependency_overrides[get_transaction_repo] = lambda: MockTransactionRepo()
-app.dependency_overrides[get_redis_pool] = lambda: mock_redis
+@pytest.fixture(autouse=True)
+def override_transactions_dependencies():
+    app.dependency_overrides[get_create_transaction_use_case] = lambda: MockCreateTransactionUseCase()
+    app.dependency_overrides[get_transaction_repo] = lambda: MockTransactionRepo()
+    app.dependency_overrides[get_redis_pool] = lambda: mock_redis
+    yield
+    app.dependency_overrides.pop(get_create_transaction_use_case, None)
+    app.dependency_overrides.pop(get_transaction_repo, None)
+    app.dependency_overrides.pop(get_redis_pool, None)
 
 @pytest.mark.asyncio
 async def test_create_transaction_api(async_client: AsyncClient):

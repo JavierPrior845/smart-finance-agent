@@ -1,6 +1,6 @@
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Any
-from sqlalchemy import select, func, and_, extract, case
+from sqlalchemy import select, func, and_, or_, extract, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.adapters.db.models.transaction import TransactionORM
@@ -23,19 +23,24 @@ class AnalyticsRepository:
         result_nw = await self.session.execute(stmt_nw)
         liquid_net_worth = result_nw.scalar_one_or_none() or 0.0
 
-        # 1.1 Total Investments Value (Latest snapshot of OPEN investments)
-        # For MVP, we sum the invested_amount or total_value if we want
-        # Let's just sum invested_amount of OPEN for simplicity in KPI, or better, the latest snapshot.
-        stmt_inv = select(func.sum(InvestmentSnapshotORM.total_value)).where(
-            InvestmentSnapshotORM.id.in_(
-                select(func.max(InvestmentSnapshotORM.id)).group_by(InvestmentSnapshotORM.asset_id)
-            )
-        )
-        # Wait, grouping by asset_id and max(id) might not give the latest if ids are UUIDs. 
-        # So let's sum the invested_amount of OPEN assets plus PnL, or just simple invested_amount for now, or just let's fetch active assets.
-        # Let's do something simpler: sum of invested_amount of all OPEN assets.
-        stmt_open_inv = select(func.sum(InvestmentAssetORM.invested_amount)).where(InvestmentAssetORM.status == 'OPEN')
-        open_inv_val = (await self.session.execute(stmt_open_inv)).scalar_one_or_none() or 0.0
+        # 1.1 Total Investments Value (Latest snapshot of OPEN investments, or invested_amount fallback)
+        active_assets = (await self.session.execute(
+            select(InvestmentAssetORM).where(InvestmentAssetORM.status == 'OPEN')
+        )).scalars().all()
+        
+        open_inv_val = 0.0
+        for asset in active_assets:
+            latest_snap_val = (await self.session.execute(
+                select(InvestmentSnapshotORM.total_value)
+                .where(InvestmentSnapshotORM.asset_id == asset.id)
+                .order_by(InvestmentSnapshotORM.snapshot_date.desc(), InvestmentSnapshotORM.created_at.desc())
+                .limit(1)
+            )).scalar_one_or_none()
+            
+            if latest_snap_val is not None:
+                open_inv_val += float(latest_snap_val)
+            else:
+                open_inv_val += float(asset.invested_amount)
         
         net_worth = float(liquid_net_worth) + float(open_inv_val)
 
@@ -239,6 +244,44 @@ class AnalyticsRepository:
             
         return pacing_data
 
+    async def _calculate_investments_value_at(self, as_of_date: date) -> float:
+        """Calculates total portfolio investment value as of a given date.
+        
+        Takes the latest snapshot up to the target date for each asset open at that time,
+        falling back to invested_amount if no snapshot is available yet.
+        """
+        stmt = select(InvestmentAssetORM).where(
+            and_(
+                func.date(InvestmentAssetORM.entry_date) <= as_of_date,
+                or_(
+                    InvestmentAssetORM.status == 'OPEN',
+                    func.date(InvestmentAssetORM.exit_date) > as_of_date
+                )
+            )
+        )
+        assets = (await self.session.execute(stmt)).scalars().all()
+        
+        total_inv = 0.0
+        for asset in assets:
+            stmt_snap = (
+                select(InvestmentSnapshotORM.total_value)
+                .where(
+                    and_(
+                        InvestmentSnapshotORM.asset_id == asset.id,
+                        InvestmentSnapshotORM.snapshot_date <= as_of_date
+                    )
+                )
+                .order_by(InvestmentSnapshotORM.snapshot_date.desc(), InvestmentSnapshotORM.created_at.desc())
+                .limit(1)
+            )
+            snap_val = (await self.session.execute(stmt_snap)).scalar_one_or_none()
+            if snap_val is not None:
+                total_inv += float(snap_val)
+            else:
+                total_inv += float(asset.invested_amount)
+                
+        return total_inv
+
     async def get_networth_history(self, months: int = 6) -> List[Dict[str, Any]]:
         """Returns monthly history of liquid net worth and investments."""
         now = datetime.now(timezone.utc)
@@ -256,21 +299,9 @@ class AnalyticsRepository:
             else:
                 month_end = datetime(target_date.year, target_date.month + 1, 1, tzinfo=timezone.utc)
             
-            # Investments sum at that month
-            stmt_inv = select(func.sum(InvestmentSnapshotORM.total_value)).where(
-                and_(
-                    InvestmentSnapshotORM.snapshot_date >= month_start.date(),
-                    InvestmentSnapshotORM.snapshot_date < month_end.date()
-                )
-            )
-            # If multiple snapshots in a month, approximate with average for MVP.
-            stmt_inv_avg = select(func.avg(InvestmentSnapshotORM.total_value)).where(
-                and_(
-                    InvestmentSnapshotORM.snapshot_date >= month_start.date(),
-                    InvestmentSnapshotORM.snapshot_date < month_end.date()
-                )
-            )
-            inv_val = (await self.session.execute(stmt_inv_avg)).scalar_one_or_none() or 0.0
+            # Investments sum at that point in time (as of today for current month, or end of month for past)
+            as_of = now.date() if i == 0 else (month_end - timedelta(days=1)).date()
+            inv_val = await self._calculate_investments_value_at(as_of)
             
             stmt_cf = select(
                 func.sum(
