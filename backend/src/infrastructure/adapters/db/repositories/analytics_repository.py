@@ -304,14 +304,13 @@ class AnalyticsRepository:
             inv_val = await self._calculate_investments_value_at(as_of)
             
             stmt_cf = select(
-                func.sum(
-                    case(
-                        (TransactionORM.type.in_(['INCOME', 'INVESTMENT_INFLOW']), TransactionORM.amount),
-                        (TransactionORM.type.in_(['EXPENSE', 'INVESTMENT_OUTFLOW']), -TransactionORM.amount),
-                        else_=0
-                    )
+                func.sum(TransactionORM.amount)
+            ).where(
+                and_(
+                    TransactionORM.transaction_date >= month_end,
+                    TransactionORM.type != 'BALANCE_ADJUSTMENT'
                 )
-            ).where(TransactionORM.transaction_date >= month_end)
+            )
             
             cashflow_since_then = float((await self.session.execute(stmt_cf)).scalar_one_or_none() or 0.0)
             approx_liquid = current_liquid - cashflow_since_then

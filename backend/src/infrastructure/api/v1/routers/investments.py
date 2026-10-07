@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, status, HTTPException
-from typing import List
+from typing import List, Optional
 from uuid import UUID
+import asyncio
+import yfinance as yf
+from pydantic import BaseModel
 from src.infrastructure.api.dependencies import get_sync_investments_use_case, get_manage_investment_use_case, get_investment_repo
 from src.application.use_cases.sync_investments import SyncInvestmentsUseCase
 from src.application.use_cases.manage_investment import ManageInvestmentUseCase
@@ -26,6 +29,37 @@ async def sync_investments(
     """
     await use_case.execute()
     return {"message": "Investments synced successfully"}
+
+class InvestmentQuoteResponse(BaseModel):
+    ticker: str
+    price: Optional[float] = None
+    currency: Optional[str] = "EUR"
+    name: Optional[str] = None
+
+@router.get("/quote", response_model=InvestmentQuoteResponse)
+async def get_investment_quote(ticker: str):
+    """
+    Fetches real-time / current market quote and metadata for a ticker using yfinance.
+    Useful for auto-filling current price and computing units/invested amounts.
+    """
+    clean_ticker = ticker.strip().upper()
+    loop = asyncio.get_running_loop()
+    try:
+        def fetch():
+            t = yf.Ticker(clean_ticker)
+            price = t.fast_info.get("lastPrice") or getattr(t.fast_info, "last_price", None)
+            curr = getattr(t.fast_info, "currency", "EUR")
+            short_name = t.info.get("shortName") or t.info.get("name") or clean_ticker
+            return {
+                "ticker": clean_ticker,
+                "price": float(price) if price is not None else None,
+                "currency": curr,
+                "name": short_name
+            }
+        data = await loop.run_in_executor(None, fetch)
+        return InvestmentQuoteResponse(**data)
+    except Exception as e:
+        return InvestmentQuoteResponse(ticker=clean_ticker, price=None, currency="EUR", name=clean_ticker)
 
 @router.get("", response_model=List[InvestmentResponse])
 async def get_investments(
