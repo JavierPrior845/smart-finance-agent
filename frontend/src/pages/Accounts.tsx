@@ -622,7 +622,7 @@ export default function Accounts() {
                   onChange={e => setInvFormData({...invFormData, category_id: e.target.value})}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
-                  <option value="">-- Por defecto del sistema (Inversiones / Otros) --</option>
+                  <option value="">-- Automático: Inversiones (se crea si no existe) --</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
                   ))}
@@ -754,7 +754,7 @@ export default function Accounts() {
                   onChange={e => setBuyMoreData({...buyMoreData, category_id: e.target.value})}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
-                  <option value="">-- Por defecto del sistema (Inversiones / Otros) --</option>
+                  <option value="">-- Automático: Inversiones (se crea si no existe) --</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
                   ))}

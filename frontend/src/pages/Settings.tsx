@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Target, Loader2, Save, Trash2, Plus, X, Shield, Users, UserPlus, Mail, Lock, User as UserIcon, TrendingUp } from 'lucide-react';
+import { Key, Target, Loader2, Save, Trash2, Plus, X, Shield, Users, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -18,10 +18,8 @@ interface InstanceUser {
 export default function Settings() {
   const { user: currentUser } = useAuth();
   const [targetSavingsRate, setTargetSavingsRate] = useState<string>("50.0");
-  const [defaultInvestmentCategory, setDefaultInvestmentCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingInvCategory, setSavingInvCategory] = useState(false);
 
   // States for Merchant Rules
   const [rules, setRules] = useState<any[]>([]);
@@ -41,16 +39,14 @@ export default function Settings() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [settingsRes, rulesRes, categoriesRes, invCatRes] = await Promise.all([
+        const [settingsRes, rulesRes, categoriesRes] = await Promise.all([
           api.get('/settings/target_savings_rate'),
           api.get('/settings/merchant-rules'),
           api.get('/categories'),
-          api.get('/settings/default_investment_category_id').catch(() => ({ data: { value: '' } })),
         ]);
         setTargetSavingsRate(settingsRes.data.value);
         setRules(rulesRes.data);
         setCategories(categoriesRes.data);
-        setDefaultInvestmentCategory(invCatRes.data.value || "");
       } catch (err) {
         console.error("Error al cargar datos de configuración", err);
       } finally {
@@ -89,42 +85,6 @@ export default function Settings() {
       toast.error("Error al guardar la tasa de ahorro");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSaveInvestmentCategory = async (catId?: string) => {
-    const valueToSave = catId !== undefined ? catId : defaultInvestmentCategory;
-    setSavingInvCategory(true);
-    try {
-      await api.put('/settings/default_investment_category_id', {
-        value: valueToSave,
-        description: "Categoría por defecto para compras de inversión"
-      });
-      setDefaultInvestmentCategory(valueToSave);
-      toast.success("Categoría por defecto de inversión guardada");
-    } catch (err) {
-      console.error("Error al guardar categoría de inversión", err);
-      toast.error("Error al guardar la categoría");
-    } finally {
-      setSavingInvCategory(false);
-    }
-  };
-
-  const handleQuickCreateInvestmentCategory = async () => {
-    try {
-      const res = await api.post('/categories', {
-        name: "Inversiones",
-        type: "INVESTMENT",
-        icon: "trending-up",
-        color: "#10b981",
-        is_budgetable: true
-      });
-      setCategories([...categories, res.data]);
-      await handleSaveInvestmentCategory(res.data.id);
-      toast.success('Categoría "Inversiones" creada y configurada');
-    } catch (err) {
-      console.error("Error al crear categoría Inversiones", err);
-      toast.error("No se pudo crear la categoría automáticamente");
     }
   };
 
@@ -241,49 +201,6 @@ export default function Settings() {
                   </button>
                 </div>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Este valor se usará para calcular el cumplimiento en tu Dashboard.</span>
-              </div>
-
-              <div className="input-group" style={{ marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <TrendingUp size={16} /> Categoría para Inversiones (DCA)
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <select
-                    value={defaultInvestmentCategory}
-                    onChange={(e) => setDefaultInvestmentCategory(e.target.value)}
-                    style={{ flex: 1 }}
-                  >
-                    <option value="">-- Sin categoría (usará 'Otros') --</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.type})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="glass-button primary"
-                    onClick={() => handleSaveInvestmentCategory()}
-                    disabled={savingInvCategory}
-                    title="Guardar categoría por defecto"
-                  >
-                    {savingInvCategory ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
-                  </button>
-                </div>
-                {!categories.some((c) => c.name.toLowerCase() === 'inversiones' || c.name.toLowerCase() === 'inversión' || c.name.toLowerCase() === 'inversion') && (
-                  <div style={{ marginTop: '6px' }}>
-                    <button
-                      type="button"
-                      className="glass-button"
-                      style={{ fontSize: '0.75rem', padding: '4px 8px', color: 'var(--accent-color)' }}
-                      onClick={handleQuickCreateInvestmentCategory}
-                    >
-                      <Plus size={12} style={{ marginRight: '4px' }} /> Crear categoría "Inversiones" automáticamente
-                    </button>
-                  </div>
-                )}
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Las salidas de efectivo por compras de inversión (DCA o aportaciones) se asignarán a esta categoría.
-                </span>
               </div>
             </div>
           )}

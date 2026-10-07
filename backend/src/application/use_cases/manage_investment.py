@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from src.application.ports.investment_repository import InvestmentRepository
 from src.application.ports.category_repository import CategoryRepository
+from src.domain.models.category import Category
 from src.domain.models.investment import InvestmentAsset, InvestmentMovement
 from src.infrastructure.adapters.db.repositories.setting_repository import SettingRepository
 from src.infrastructure.api.v1.schemas.investment import (
@@ -49,8 +50,22 @@ class ManageInvestmentUseCase:
                     inv_cat = next((c for c in all_cats if c.name.lower() in ("inversiones", "inversión", "inversion")), None)
                 if inv_cat:
                     return inv_cat.id
+
+                # Si no existe ninguna categoría de inversión, crearla automáticamente al invertir
+                new_cat = Category(
+                    id=uuid.uuid4(),
+                    name="Inversiones",
+                    type="INVESTMENT",
+                    color="#10b981",
+                    icon="trending-up",
+                    is_budgetable=True,
+                    is_active=True,
+                    created_at=datetime.now(timezone.utc)
+                )
+                saved_cat = await self.category_repo.save(new_cat)
+                return saved_cat.id
             except Exception as e:
-                print(f"Warning: Failed resolving category 'Inversiones': {e}")
+                print(f"Warning: Failed resolving or creating category 'Inversiones': {e}")
 
         return None
 
