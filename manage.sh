@@ -104,7 +104,7 @@ export_env_vars() {
         export REDIS_PORT="${REDIS_PORT:-6379}"
         export REDIS_URL="redis://localhost:${REDIS_PORT}/1"
         export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
-        export API_PORT="${API_PORT:-8000}"
+        export API_PORT="${API_PORT:-8001}"
         export FRONTEND_PORT="${FRONTEND_PORT:-5173}"
     else
         echo -e "${GREEN}>>> Modo PRODUCCIÓN activado (Base de Datos: smart_finance)${NC}"
@@ -158,8 +158,8 @@ start_dev_local() {
     echo -e "${GREEN}🚀 Entorno de desarrollo LOCAL activo${NC}"
     echo -e "   - Base de Datos:  ${YELLOW}${POSTGRES_DB}${NC} (PostgreSQL en Docker :${POSTGRES_PORT})"
     echo -e "   - Redis:          ${YELLOW}localhost:${REDIS_PORT}${NC} (en Docker)"
-    echo -e "   - Backend API:    ${YELLOW}http://localhost:8000${NC} (Docs: http://localhost:8000/docs)"
-    echo -e "   - Frontend Web:   ${YELLOW}http://localhost:5173${NC}"
+    echo -e "   - Backend API:    ${YELLOW}http://localhost:${API_PORT}${NC} (Docs: http://localhost:${API_PORT}/docs)"
+    echo -e "   - Frontend Web:   ${YELLOW}http://localhost:${FRONTEND_PORT}${NC}"
     echo -e "   - Pulsa ${RED}Ctrl + C${NC} para detener los servidores locales."
     echo -e "${GREEN}================================================================${NC}"
     echo ""
@@ -190,14 +190,14 @@ start_dev_local() {
         export ENVIRONMENT="development"
         export POSTGRES_DB="$POSTGRES_DB"
         export REDIS_URL="$REDIS_URL"
-        exec uvicorn src.main:app --reload --port 8000
+        exec uvicorn src.main:app --reload --port "$API_PORT"
     ) &
     BACKEND_PID=$!
 
     # Lanzar Frontend en segundo plano
     (
         cd "$PROJECT_ROOT/frontend"
-        export VITE_API_BASE_URL="http://localhost:8000/api/v1"
+        export VITE_API_BASE_URL="http://localhost:${API_PORT}/api/v1"
         exec npm run dev
     ) &
     FRONTEND_PID=$!

@@ -67,11 +67,12 @@ export default function Accounts() {
 
   const getResolvedDefaultCategory = () => {
     if (defaultInvCategoryId) return defaultInvCategoryId;
-    const invCat = categories.find((c: any) => 
-      c.name.toLowerCase() === 'inversiones' || 
-      c.name.toLowerCase() === 'inversión' || 
-      c.name.toLowerCase() === 'inversion'
-    );
+    const invCat = categories.find((c: any) => c.type === 'INVESTMENT') ||
+      categories.find((c: any) => 
+        c.name.toLowerCase() === 'inversiones' || 
+        c.name.toLowerCase() === 'inversión' || 
+        c.name.toLowerCase() === 'inversion'
+      );
     return invCat ? invCat.id : '';
   };
 

@@ -114,10 +114,10 @@ export default function Settings() {
     try {
       const res = await api.post('/categories', {
         name: "Inversiones",
-        type: "EXPENSE",
+        type: "INVESTMENT",
         icon: "trending-up",
         color: "#10b981",
-        is_budgetable: false
+        is_budgetable: true
       });
       setCategories([...categories, res.data]);
       await handleSaveInvestmentCategory(res.data.id);

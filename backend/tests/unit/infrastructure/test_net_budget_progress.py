@@ -148,3 +148,67 @@ async def test_net_income_goal_progress(in_memory_db: AsyncSession):
     assert item["monthly_limit"] == 1000.0
     # Net earned should be 500.0 - 200.0 = 300.0
     assert item["spent"] == 300.0
+
+
+@pytest.mark.asyncio
+async def test_net_investment_budget_progress(in_memory_db: AsyncSession):
+    # 1. Create an Investment Category with goal 500€
+    category = CategoryORM(
+        id=uuid.uuid4(),
+        name="Fondos Indexados",
+        type="INVESTMENT",
+        is_budgetable=True,
+        default_budget_limit=500.0,
+        is_active=True
+    )
+    in_memory_db.add(category)
+
+    account = AccountORM(
+        id=uuid.uuid4(),
+        name="Cuenta Test",
+        account_type="BANK",
+        current_balance=2000.0,
+        currency="EUR"
+    )
+    in_memory_db.add(account)
+    await in_memory_db.flush()
+
+    now = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
+    
+    # 2. Outflow / Buy investment 300€
+    t_outflow = TransactionORM(
+        id=uuid.uuid4(),
+        account_id=account.id,
+        category_id=category.id,
+        amount=-300.0,
+        type="INVESTMENT_OUTFLOW",
+        transaction_date=now,
+        description="Aporte MSCI World",
+        source="MANUAL"
+    )
+    in_memory_db.add(t_outflow)
+
+    # 3. Partial sell / Inflow 50€
+    t_inflow = TransactionORM(
+        id=uuid.uuid4(),
+        account_id=account.id,
+        category_id=category.id,
+        amount=50.0,
+        type="INVESTMENT_INFLOW",
+        transaction_date=now,
+        description="Reembolso de inversión",
+        source="MANUAL"
+    )
+    in_memory_db.add(t_inflow)
+    await in_memory_db.commit()
+
+    repo = SQLAlchemyBudgetRepository(in_memory_db)
+    progress = await repo.get_progress_for_month(9, 2026)
+
+    assert len(progress) == 1
+    item = progress[0]
+    assert item["category_name"] == "Fondos Indexados"
+    assert item["category_type"] == "INVESTMENT"
+    assert item["monthly_limit"] == 500.0
+    # Net invested should be 300.0 - 50.0 = 250.0
+    assert item["spent"] == 250.0

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, Field
 
-CategoryType = Literal['EXPENSE', 'INCOME']
+CategoryType = Literal['EXPENSE', 'INCOME', 'INVESTMENT']
 
 class Category(BaseModel):
     id: UUID = Field(default_factory=uuid4)

@@ -306,8 +306,8 @@ class AnalyticsRepository:
             stmt_cf = select(
                 func.sum(
                     case(
-                        (TransactionORM.type == 'INCOME', TransactionORM.amount),
-                        (TransactionORM.type == 'EXPENSE', -TransactionORM.amount),
+                        (TransactionORM.type.in_(['INCOME', 'INVESTMENT_INFLOW']), TransactionORM.amount),
+                        (TransactionORM.type.in_(['EXPENSE', 'INVESTMENT_OUTFLOW']), -TransactionORM.amount),
                         else_=0
                     )
                 )

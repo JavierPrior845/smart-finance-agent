@@ -390,6 +390,8 @@ export default function Dashboard() {
                 >
                   <option value="EXPENSE">Gasto</option>
                   <option value="INCOME">Ingreso</option>
+                  <option value="INVESTMENT_OUTFLOW">Inversión (Aporte/Compra)</option>
+                  <option value="INVESTMENT_INFLOW">Inversión (Retiro/Venta)</option>
                 </select>
               </div>
 

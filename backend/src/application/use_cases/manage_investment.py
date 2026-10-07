@@ -40,11 +40,13 @@ class ManageInvestmentUseCase:
             except Exception as e:
                 print(f"Warning: Failed reading default_investment_category_id: {e}")
 
-        # 2. Check if a category named 'Inversiones' or 'Inversión' exists
+        # 2. Check if an INVESTMENT category or category named 'Inversiones' exists
         if self.category_repo:
             try:
                 all_cats = await self.category_repo.get_all()
-                inv_cat = next((c for c in all_cats if c.name.lower() in ("inversiones", "inversión", "inversion")), None)
+                inv_cat = next((c for c in all_cats if getattr(c, 'type', None) == 'INVESTMENT'), None)
+                if not inv_cat:
+                    inv_cat = next((c for c in all_cats if c.name.lower() in ("inversiones", "inversión", "inversion")), None)
                 if inv_cat:
                     return inv_cat.id
             except Exception as e:
@@ -106,7 +108,7 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.source_account_id,
-                transaction_type="EXPENSE",
+                transaction_type="INVESTMENT_OUTFLOW",
                 category_id=resolved_category_id
             )
         except Exception as e:
@@ -160,7 +162,7 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.source_account_id or asset.source_account_id,
-                transaction_type="EXPENSE",
+                transaction_type="INVESTMENT_OUTFLOW",
                 category_id=resolved_category_id
             )
         except Exception as e:
@@ -226,7 +228,7 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.destination_account_id or asset.source_account_id,
-                transaction_type="INCOME"
+                transaction_type="INVESTMENT_INFLOW"
             )
         except Exception as e:
             print(f"Warning: Failed to create cashflow transaction for sell_units: {e}")

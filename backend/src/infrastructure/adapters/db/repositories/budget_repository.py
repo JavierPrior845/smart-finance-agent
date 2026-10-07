@@ -86,6 +86,14 @@ class SQLAlchemyBudgetRepository(BudgetRepository):
                             else_=0
                         )
                     ),
+                    (
+                        CategoryORM.type == 'INVESTMENT',
+                        case(
+                            (TransactionORM.type.in_(['INVESTMENT_OUTFLOW', 'EXPENSE']), func.abs(TransactionORM.amount)),
+                            (TransactionORM.type.in_(['INVESTMENT_INFLOW', 'INCOME']), -func.abs(TransactionORM.amount)),
+                            else_=0
+                        )
+                    ),
                     else_=0
                 )
             ).label("spent")
