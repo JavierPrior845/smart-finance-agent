@@ -28,8 +28,18 @@ def get_transaction_repo(session: AsyncSession = Depends(get_db_session)) -> SQL
 def get_investment_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyInvestmentRepository:
     return SQLAlchemyInvestmentRepository(session)
 
-def get_manage_account_use_case(repo: SQLAlchemyAccountRepository = Depends(get_account_repo)) -> ManageAccountUseCase:
-    return ManageAccountUseCase(repo)
+def get_create_transaction_use_case(
+    transaction_repo: SQLAlchemyTransactionRepository = Depends(get_transaction_repo),
+    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
+    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
+) -> CreateTransactionUseCase:
+    return CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
+
+def get_manage_account_use_case(
+    repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
+    create_tx_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case)
+) -> ManageAccountUseCase:
+    return ManageAccountUseCase(repo, create_tx_use_case)
 
 def get_manage_category_use_case(repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)) -> ManageCategoryUseCase:
     return ManageCategoryUseCase(repo)
@@ -40,13 +50,6 @@ def get_manage_budget_use_case(
     budget_repo = SQLAlchemyBudgetRepository(session)
     category_repo = SQLAlchemyCategoryRepository(session)
     return ManageBudgetUseCase(budget_repo, category_repo)
-
-def get_create_transaction_use_case(
-    transaction_repo: SQLAlchemyTransactionRepository = Depends(get_transaction_repo),
-    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
-    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
-) -> CreateTransactionUseCase:
-    return CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
 
 def get_sync_investments_use_case(
     investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo)

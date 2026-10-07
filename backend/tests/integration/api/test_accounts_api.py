@@ -12,7 +12,7 @@ class MockManageAccountUseCase:
             Account(id=uuid4(), name="Mock 2", account_type="CASH", current_balance=50.0)
         ]
 
-    async def create_account(self, name, account_type, initial_balance, is_main, currency):
+    async def create_account(self, name, account_type, initial_balance, is_main, currency, source_account_id=None):
         return Account(
             id=uuid4(),
             name=name,
