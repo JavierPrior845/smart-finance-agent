@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown, Info, Sparkles, Tag } from 'lucide-react';
+import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown, Info, Sparkles, Tag, Search } from 'lucide-react';
 import api from '../services/api';
 import './Pages.css';
 
@@ -58,12 +58,81 @@ export default function Accounts() {
     ticker: '',
     asset_type: 'STOCK',
     broker: '',
-    invested_amount: '0',
-    units_qty: '0',
-    average_buy_price: '0',
+    invested_amount: '',
+    units_qty: '',
+    average_buy_price: '',
     source_account_id: '',
     category_id: ''
   });
+  const [searchingQuote, setSearchingQuote] = useState(false);
+
+  // Auto-calcular precio/unidades/total al buscar ticker o cambiar inputs
+  const handleFetchQuote = async (tickerToSearch?: string) => {
+    const symbol = (tickerToSearch || invFormData.ticker).trim().toUpperCase();
+    if (!symbol) return;
+    setSearchingQuote(true);
+    try {
+      const res = await api.get(`/investments/quote?ticker=${encodeURIComponent(symbol)}`);
+      if (res.data?.price) {
+        const marketPrice = res.data.price;
+        setInvFormData(prev => {
+          const updated = { ...prev, ticker: symbol };
+          if (!prev.name && res.data.name) {
+            updated.name = res.data.name;
+          }
+          updated.average_buy_price = marketPrice.toString();
+          const invNum = parseFloat(prev.invested_amount);
+          const unitsNum = parseFloat(prev.units_qty);
+          if (invNum > 0 && (!unitsNum || unitsNum === 0)) {
+            updated.units_qty = (invNum / marketPrice).toFixed(6);
+          } else if (unitsNum > 0 && (!invNum || invNum === 0)) {
+            updated.invested_amount = (unitsNum * marketPrice).toFixed(2);
+          }
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn("Could not fetch quote for ticker", symbol, err);
+    } finally {
+      setSearchingQuote(false);
+    }
+  };
+
+  const handleInvestedAmountChange = (val: string) => {
+    const num = parseFloat(val);
+    const price = parseFloat(invFormData.average_buy_price);
+    setInvFormData(prev => {
+      const updated = { ...prev, invested_amount: val };
+      if (price > 0 && num > 0) {
+        updated.units_qty = (num / price).toFixed(6);
+      }
+      return updated;
+    });
+  };
+
+  const handleUnitsChange = (val: string) => {
+    const units = parseFloat(val);
+    const price = parseFloat(invFormData.average_buy_price);
+    setInvFormData(prev => {
+      const updated = { ...prev, units_qty: val };
+      if (price > 0 && units > 0) {
+        updated.invested_amount = (units * price).toFixed(2);
+      }
+      return updated;
+    });
+  };
+
+  const handlePriceChange = (val: string) => {
+    const price = parseFloat(val);
+    const inv = parseFloat(invFormData.invested_amount);
+    setInvFormData(prev => {
+      const updated = { ...prev, average_buy_price: val };
+      if (price > 0 && inv > 0) {
+        updated.units_qty = (inv / price).toFixed(6);
+      }
+      return updated;
+    });
+  };
 
   const getResolvedDefaultCategory = () => {
     if (defaultInvCategoryId) return defaultInvCategoryId;
@@ -151,7 +220,7 @@ export default function Accounts() {
         category_id: invFormData.category_id || null
       });
       setShowInvModal(false);
-      setInvFormData({ name: '', ticker: '', asset_type: 'STOCK', broker: '', invested_amount: '0', units_qty: '0', average_buy_price: '0', source_account_id: '', category_id: '' });
+      setInvFormData({ name: '', ticker: '', asset_type: 'STOCK', broker: '', invested_amount: '', units_qty: '', average_buy_price: '', source_account_id: '', category_id: '' });
       await fetchAccountsAndInvestments();
       await syncInvestments();
     } catch (error) {
@@ -527,14 +596,27 @@ export default function Accounts() {
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
                   <label>Ticker (Yahoo Finance)</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={invFormData.ticker} 
-                    onChange={e => setInvFormData({...invFormData, ticker: e.target.value.toUpperCase()})}
-                    placeholder="Ej. BTC-USD, AAPL"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="text" 
+                      required
+                      value={invFormData.ticker} 
+                      onChange={e => setInvFormData({...invFormData, ticker: e.target.value.toUpperCase()})}
+                      onBlur={() => handleFetchQuote()}
+                      placeholder="Ej. BTC-EUR, AAPL, VWCE.DE"
+                      style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                    <button
+                      type="button"
+                      className="glass-button"
+                      onClick={() => handleFetchQuote()}
+                      disabled={searchingQuote || !invFormData.ticker}
+                      title="Consultar precio y cotización de mercado"
+                      style={{ padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {searchingQuote ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -566,35 +648,38 @@ export default function Accounts() {
               </div>
 
               <div className="input-group">
-                <label>Total Invertido Inicialmente (€)</label>
+                <label>Total Invertido (€)</label>
                 <input 
                   type="number" 
                   step="0.01"
                   required
                   value={invFormData.invested_amount} 
-                  onChange={e => setInvFormData({...invFormData, invested_amount: e.target.value})}
+                  onChange={e => handleInvestedAmountChange(e.target.value)}
+                  placeholder="Ej. 500.00"
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
               </div>
 
               <div style={{ display: 'flex', gap: '16px' }}>
                 <div className="input-group" style={{ flex: 1 }}>
-                  <label>Unidades Compradas</label>
+                  <label>Unidades (Opcional - se autocalcula)</label>
                   <input 
                     type="number" 
                     step="0.00000001"
                     value={invFormData.units_qty} 
-                    onChange={e => setInvFormData({...invFormData, units_qty: e.target.value})}
+                    onChange={e => handleUnitsChange(e.target.value)}
+                    placeholder="Autocalculado"
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
-                  <label>Precio Unitario (€)</label>
+                  <label>Precio Unitario (€) (Opcional - cotización)</label>
                   <input 
                     type="number" 
                     step="0.00000001"
                     value={invFormData.average_buy_price} 
-                    onChange={e => setInvFormData({...invFormData, average_buy_price: e.target.value})}
+                    onChange={e => handlePriceChange(e.target.value)}
+                    placeholder="Cotización actual"
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
                 </div>
