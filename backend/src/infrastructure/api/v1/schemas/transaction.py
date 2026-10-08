@@ -19,6 +19,8 @@ class TransactionUpdate(BaseModel):
     amount: Optional[float] = None
     description: Optional[str] = None
     category_id: Optional[UUID] = None
+    account_id: Optional[UUID] = None
+    type: Optional[TransactionType] = None
     transaction_date: Optional[datetime] = None
 
 class TransactionResponse(TransactionCreate):

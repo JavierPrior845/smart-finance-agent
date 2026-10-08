@@ -124,6 +124,24 @@ class SQLAlchemyTransactionRepository(TransactionRepository):
         await self.session.flush()
         return self._to_domain(orm)
 
+    async def update(self, transaction: Transaction) -> Transaction:
+        orm = await self.session.get(TransactionORM, transaction.id)
+        if orm:
+            orm.amount = transaction.amount
+            orm.type = transaction.type
+            orm.description = transaction.description
+            orm.category_id = transaction.category_id
+            orm.account_id = transaction.account_id
+            orm.destination_account_id = transaction.destination_account_id
+            orm.transaction_date = transaction.transaction_date
+            orm.source = transaction.source
+            orm.status = transaction.status
+            orm.is_recurring = transaction.is_recurring
+            orm.is_anomalous = transaction.is_anomalous
+            await self.session.flush()
+            return self._to_domain(orm)
+        return transaction
+
     async def delete(self, transaction_id: UUID) -> None:
         orm = await self.session.get(TransactionORM, transaction_id)
         if orm:

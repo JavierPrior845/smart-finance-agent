@@ -35,6 +35,10 @@ class TransactionRepository(ABC):
         pass
 
     @abstractmethod
+    async def update(self, transaction: Transaction) -> Transaction:
+        pass
+
+    @abstractmethod
     async def delete(self, transaction_id: UUID) -> None:
         pass
 
