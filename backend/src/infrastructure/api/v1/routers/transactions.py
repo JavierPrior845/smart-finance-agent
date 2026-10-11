@@ -5,11 +5,17 @@ import json
 from datetime import datetime, timezone
 
 from src.infrastructure.adapters.redis.client import get_redis_pool
-from src.infrastructure.api.dependencies import get_create_transaction_use_case, get_transaction_repo
+from src.infrastructure.api.dependencies import (
+    get_create_transaction_use_case, 
+    get_manage_transaction_use_case,
+    get_transaction_repo
+)
 from src.application.ports.transaction_repository import TransactionRepository
 from src.application.use_cases.create_transaction import CreateTransactionUseCase
+from src.application.use_cases.manage_transaction import ManageTransactionUseCase
 from src.infrastructure.api.v1.schemas.transaction import (
     TransactionCreate, 
+    TransactionUpdate,
     TransactionResponse, 
     PaginatedTransactionsResponse,
     PendingTransactionResponse,
@@ -59,6 +65,38 @@ async def create_transaction(
             category_id=data.category_id
         )
         return transaction
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/{transaction_id}", response_model=TransactionResponse)
+async def update_transaction(
+    transaction_id: UUID,
+    data: TransactionUpdate,
+    use_case: ManageTransactionUseCase = Depends(get_manage_transaction_use_case)
+):
+    """Update an existing transaction (only INCOME or EXPENSE) and recalculate account balance."""
+    try:
+        updated = await use_case.update_transaction(
+            transaction_id=transaction_id,
+            amount=data.amount,
+            description=data.description,
+            category_id=data.category_id,
+            account_id=data.account_id,
+            transaction_type=data.type,
+            transaction_date=data.transaction_date
+        )
+        return updated
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    transaction_id: UUID,
+    use_case: ManageTransactionUseCase = Depends(get_manage_transaction_use_case)
+):
+    """Delete an existing transaction (only INCOME or EXPENSE) and revert account balance."""
+    try:
+        await use_case.delete_transaction(transaction_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

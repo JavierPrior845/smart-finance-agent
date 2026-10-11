@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown, Info, Sparkles, Tag, Search } from 'lucide-react';
+import { Plus, Minus, X, Loader2, History, TrendingUp, TrendingDown, Info, Sparkles, Tag, Search, ArrowRightLeft, Sliders } from 'lucide-react';
 import api from '../services/api';
 import './Pages.css';
 
@@ -50,8 +50,29 @@ export default function Accounts() {
     account_type: 'BANK',
     initial_balance: '0',
     currency: 'EUR',
-    is_main: false
+    is_main: false,
+    source_account_id: ''
   });
+
+  // Modal Traspasar Fondos entre Cuentas
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferData, setTransferData] = useState({
+    source_account_id: '',
+    destination_account_id: '',
+    amount: '',
+    description: 'Traspaso entre cuentas'
+  });
+  const [savingTransfer, setSavingTransfer] = useState(false);
+
+  // Modal Ajustar Saldo de Cuenta
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustTargetAccount, setAdjustTargetAccount] = useState<any | null>(null);
+  const [adjustData, setAdjustData] = useState({
+    amount: '',
+    mode: 'SET', // 'SET', 'ADD', 'SUBTRACT'
+    description: 'Ajuste de saldo'
+  });
+  const [savingAdjust, setSavingAdjust] = useState(false);
 
   const [invFormData, setInvFormData] = useState({
     name: '',
@@ -188,17 +209,66 @@ export default function Accounts() {
       await api.post('/accounts', {
         name: formData.name,
         account_type: formData.account_type,
-        initial_balance: parseFloat(formData.initial_balance),
+        initial_balance: parseFloat(formData.initial_balance || '0'),
         currency: formData.currency,
-        is_main: formData.is_main
+        is_main: formData.is_main,
+        source_account_id: formData.source_account_id || null
       });
       setShowModal(false);
-      setFormData({ name: '', account_type: 'BANK', initial_balance: '0', currency: 'EUR', is_main: false });
+      setFormData({ name: '', account_type: 'BANK', initial_balance: '0', currency: 'EUR', is_main: false, source_account_id: '' });
       await fetchAccountsAndInvestments();
     } catch (error) {
       console.error("Error creating account", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferData.source_account_id || !transferData.destination_account_id || !transferData.amount) return;
+    if (transferData.source_account_id === transferData.destination_account_id) {
+      alert("La cuenta de origen y destino deben ser distintas");
+      return;
+    }
+
+    setSavingTransfer(true);
+    try {
+      await api.post('/accounts/transfer', {
+        source_account_id: transferData.source_account_id,
+        destination_account_id: transferData.destination_account_id,
+        amount: parseFloat(transferData.amount),
+        description: transferData.description || "Traspaso entre cuentas"
+      });
+      setShowTransferModal(false);
+      setTransferData({ source_account_id: '', destination_account_id: '', amount: '', description: 'Traspaso entre cuentas' });
+      await fetchAccountsAndInvestments();
+    } catch (error) {
+      console.error("Error transferring funds", error);
+    } finally {
+      setSavingTransfer(false);
+    }
+  };
+
+  const handleAdjustBalance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustTargetAccount || !adjustData.amount) return;
+
+    setSavingAdjust(true);
+    try {
+      await api.post(`/accounts/${adjustTargetAccount.id}/balance`, {
+        amount: parseFloat(adjustData.amount),
+        mode: adjustData.mode,
+        description: adjustData.description || "Ajuste de saldo"
+      });
+      setShowAdjustModal(false);
+      setAdjustTargetAccount(null);
+      setAdjustData({ amount: '', mode: 'SET', description: 'Ajuste de saldo' });
+      await fetchAccountsAndInvestments();
+    } catch (error) {
+      console.error("Error adjusting balance", error);
+    } finally {
+      setSavingAdjust(false);
     }
   };
 
@@ -306,6 +376,26 @@ export default function Accounts() {
           <p className="page-subtitle">Liquidez Bancaria Total: €{totalLiquidity.toFixed(2)}</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="glass-button" 
+            onClick={() => {
+              if (accounts.length < 2) {
+                alert("Necesitas al menos 2 cuentas para realizar un traspaso");
+                return;
+              }
+              setTransferData({
+                source_account_id: accounts[0]?.id || '',
+                destination_account_id: accounts[1]?.id || '',
+                amount: '',
+                description: 'Traspaso entre cuentas'
+              });
+              setShowTransferModal(true);
+            }}
+            title="Mover dinero de una cuenta a otra sin afectar ingresos ni gastos"
+          >
+            <ArrowRightLeft size={18} />
+            Traspasar
+          </button>
           <button className="glass-button primary" onClick={() => setShowModal(true)}>
             <Plus size={18} />
             Nueva Cuenta
@@ -336,13 +426,27 @@ export default function Accounts() {
               <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No tienes cuentas registradas.</p>
             ) : (
               accounts.map(acc => (
-                <div key={acc.id} className="account-card glass-panel">
+                <div key={acc.id} className="account-card glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div className="acc-info">
                     <h4>{acc.name} {acc.is_main && <span className="badge">Principal</span>}</h4>
                     <span className="acc-type" style={{ opacity: 0.7 }}>{acc.account_type}</span>
                   </div>
-                  <div className="acc-balance">
-                    {acc.currency === 'EUR' ? '€' : acc.currency} {acc.current_balance.toFixed(2)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="acc-balance">
+                      {acc.currency === 'EUR' ? '€' : acc.currency} {acc.current_balance.toFixed(2)}
+                    </div>
+                    <button
+                      className="glass-button"
+                      style={{ padding: '6px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      title="Ajustar saldo de esta cuenta"
+                      onClick={() => {
+                        setAdjustTargetAccount(acc);
+                        setAdjustData({ amount: acc.current_balance.toString(), mode: 'SET', description: 'Ajuste de saldo' });
+                        setShowAdjustModal(true);
+                      }}
+                    >
+                      <Sliders size={13} /> Ajustar
+                    </button>
                   </div>
                 </div>
               ))
@@ -540,6 +644,29 @@ export default function Accounts() {
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
               </div>
+
+              {parseFloat(formData.initial_balance || '0') > 0 && accounts.length > 0 && (
+                <div className="input-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ArrowRightLeft size={14} /> ¿Fondear desde una cuenta existente? (Opcional)
+                  </label>
+                  <select 
+                    value={formData.source_account_id} 
+                    onChange={e => setFormData({...formData, source_account_id: e.target.value})}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <option value="">-- No, es dinero nuevo exterior --</option>
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>
+                        Descontar de {acc.name} (Saldo: €{acc.current_balance.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Si seleccionas una cuenta, se traspasará el dinero y tu patrimonio no aumentará ficticiamente.
+                  </span>
+                </div>
+              )}
 
               <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexDirection: 'row' }}>
                 <input 
@@ -979,6 +1106,195 @@ export default function Accounts() {
                 })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Traspaso entre Cuentas */}
+      {showTransferModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="glass-panel" style={{ width: '420px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ArrowRightLeft size={20} style={{ color: 'var(--color-primary)' }} />
+                Traspaso entre Cuentas
+              </h3>
+              <button onClick={() => setShowTransferModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Mueve dinero entre tus cuentas sin alterar presupuestos ni generar gastos/ingresos en el dashboard.
+            </p>
+
+            <form onSubmit={handleTransfer} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label>Cuenta Origen (Sale el dinero)</label>
+                <select 
+                  required
+                  value={transferData.source_account_id} 
+                  onChange={e => setTransferData({...transferData, source_account_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">Selecciona origen...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id} disabled={acc.id === transferData.destination_account_id}>
+                      {acc.name} (Saldo: €{acc.current_balance.toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label>Cuenta Destino (Entra el dinero)</label>
+                <select 
+                  required
+                  value={transferData.destination_account_id} 
+                  onChange={e => setTransferData({...transferData, destination_account_id: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="">Selecciona destino...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id} disabled={acc.id === transferData.source_account_id}>
+                      {acc.name} (Saldo: €{acc.current_balance.toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label>Importe a Traspasar (€)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  required
+                  min="0.01"
+                  value={transferData.amount} 
+                  onChange={e => setTransferData({...transferData, amount: e.target.value})}
+                  placeholder="Ej. 300.00"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Concepto (Opcional)</label>
+                <input 
+                  type="text" 
+                  value={transferData.description} 
+                  onChange={e => setTransferData({...transferData, description: e.target.value})}
+                  placeholder="Ej. Traspaso ahorro"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="glass-button primary" 
+                style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}
+                disabled={savingTransfer}
+              >
+                {savingTransfer ? <Loader2 className="spin" size={20} /> : 'Ejecutar Traspaso'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajustar Saldo Directo */}
+      {showAdjustModal && adjustTargetAccount && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="glass-panel" style={{ width: '400px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sliders size={20} style={{ color: 'var(--color-primary)' }} />
+                Ajustar Saldo: {adjustTargetAccount.name}
+              </h3>
+              <button onClick={() => { setShowAdjustModal(false); setAdjustTargetAccount(null); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Saldo actual: <strong>€{adjustTargetAccount.current_balance.toFixed(2)}</strong>. Modifica directamente el saldo sin alterar presupuestos.
+            </p>
+
+            <form onSubmit={handleAdjustBalance} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label>Tipo de Ajuste</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`glass-button ${adjustData.mode === 'SET' ? 'primary' : ''}`}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.82rem' }}
+                    onClick={() => setAdjustData({...adjustData, mode: 'SET'})}
+                  >
+                    Fijar Exacto
+                  </button>
+                  <button
+                    type="button"
+                    className={`glass-button ${adjustData.mode === 'ADD' ? 'success' : ''}`}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.82rem' }}
+                    onClick={() => setAdjustData({...adjustData, mode: 'ADD'})}
+                  >
+                    + Añadir
+                  </button>
+                  <button
+                    type="button"
+                    className={`glass-button ${adjustData.mode === 'SUBTRACT' ? 'danger' : ''}`}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.82rem' }}
+                    onClick={() => setAdjustData({...adjustData, mode: 'SUBTRACT'})}
+                  >
+                    - Quitar
+                  </button>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>
+                  {adjustData.mode === 'SET' ? 'Nuevo Saldo Total (€)' : adjustData.mode === 'ADD' ? 'Importe a Añadir (€)' : 'Importe a Quitar (€)'}
+                </label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  required
+                  value={adjustData.amount} 
+                  onChange={e => setAdjustData({...adjustData, amount: e.target.value})}
+                  placeholder="0.00"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Motivo / Descripción</label>
+                <input 
+                  type="text" 
+                  value={adjustData.description} 
+                  onChange={e => setAdjustData({...adjustData, description: e.target.value})}
+                  placeholder="Ej. Cuadre bancario"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="glass-button primary" 
+                style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}
+                disabled={savingAdjust}
+              >
+                {savingAdjust ? <Loader2 className="spin" size={20} /> : 'Guardar Ajuste'}
+              </button>
+            </form>
           </div>
         </div>
       )}
