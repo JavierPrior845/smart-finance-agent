@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from src.application.ports.investment_repository import InvestmentRepository
 from src.application.ports.category_repository import CategoryRepository
+from src.domain.models.category import Category
 from src.domain.models.investment import InvestmentAsset, InvestmentMovement
 from src.infrastructure.adapters.db.repositories.setting_repository import SettingRepository
 from src.infrastructure.api.v1.schemas.investment import (
@@ -40,15 +41,31 @@ class ManageInvestmentUseCase:
             except Exception as e:
                 print(f"Warning: Failed reading default_investment_category_id: {e}")
 
-        # 2. Check if a category named 'Inversiones' or 'Inversión' exists
+        # 2. Check if an INVESTMENT category or category named 'Inversiones' exists
         if self.category_repo:
             try:
                 all_cats = await self.category_repo.get_all()
-                inv_cat = next((c for c in all_cats if c.name.lower() in ("inversiones", "inversión", "inversion")), None)
+                inv_cat = next((c for c in all_cats if getattr(c, 'type', None) == 'INVESTMENT'), None)
+                if not inv_cat:
+                    inv_cat = next((c for c in all_cats if c.name.lower() in ("inversiones", "inversión", "inversion")), None)
                 if inv_cat:
                     return inv_cat.id
+
+                # Si no existe ninguna categoría de inversión, crearla automáticamente al invertir
+                new_cat = Category(
+                    id=uuid.uuid4(),
+                    name="Inversiones",
+                    type="INVESTMENT",
+                    color="#10b981",
+                    icon="trending-up",
+                    is_budgetable=True,
+                    is_active=True,
+                    created_at=datetime.now(timezone.utc)
+                )
+                saved_cat = await self.category_repo.save(new_cat)
+                return saved_cat.id
             except Exception as e:
-                print(f"Warning: Failed resolving category 'Inversiones': {e}")
+                print(f"Warning: Failed resolving or creating category 'Inversiones': {e}")
 
         return None
 
@@ -56,13 +73,22 @@ class ManageInvestmentUseCase:
         asset_id = uuid.uuid4()
         now = datetime.now(timezone.utc)
         
-        # Calculate units or average buy price if missing
-        units = data.units_qty
-        buy_price = data.average_buy_price
-        if units and not buy_price and units > 0:
-            buy_price = data.invested_amount / units
-        elif buy_price and not units and buy_price > 0:
-            units = data.invested_amount / buy_price
+        # Calculate and reconcile units, average buy price, and invested amount
+        invested = float(data.invested_amount or 0.0)
+        units = float(data.units_qty) if data.units_qty is not None else None
+        buy_price = float(data.average_buy_price) if data.average_buy_price is not None else None
+
+        if units and buy_price and units > 0 and buy_price > 0:
+            # If units and price are explicitly provided, invested amount is units * price
+            invested = round(units * buy_price, 2)
+        elif units and units > 0 and invested > 0 and not buy_price:
+            buy_price = invested / units
+        elif buy_price and buy_price > 0 and invested > 0 and not units:
+            units = invested / buy_price
+        elif invested > 0 and not units and not buy_price:
+            # Fallback for simple capital investments without ticker/units: 1 unit at invested amount
+            units = 1.0
+            buy_price = invested
 
         # 1. Create the Asset
         asset = InvestmentAsset(
@@ -71,7 +97,7 @@ class ManageInvestmentUseCase:
             asset_type=data.asset_type,
             broker=data.broker,
             entry_date=now,
-            invested_amount=data.invested_amount,
+            invested_amount=invested,
             status='OPEN',
             ticker=data.ticker,
             units_qty=units,
@@ -87,7 +113,7 @@ class ManageInvestmentUseCase:
             id=uuid.uuid4(),
             asset_id=asset_id,
             movement_type='BUY_MORE',
-            amount=data.invested_amount,
+            amount=invested,
             movement_date=now,
             units=units,
             unit_price=buy_price,
@@ -101,12 +127,12 @@ class ManageInvestmentUseCase:
         resolved_category_id = await self._resolve_category_id(data.category_id)
         try:
             await self.create_tx_use_case.execute(
-                amount=data.invested_amount,
+                amount=invested,
                 description=f"Compra de inversión: {asset.name} ({asset.ticker or 'N/A'})",
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.source_account_id,
-                transaction_type="EXPENSE",
+                transaction_type="INVESTMENT_OUTFLOW",
                 category_id=resolved_category_id
             )
         except Exception as e:
@@ -160,7 +186,7 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.source_account_id or asset.source_account_id,
-                transaction_type="EXPENSE",
+                transaction_type="INVESTMENT_OUTFLOW",
                 category_id=resolved_category_id
             )
         except Exception as e:
@@ -226,7 +252,7 @@ class ManageInvestmentUseCase:
                 source=f"Broker: {asset.broker}",
                 transaction_date=now,
                 account_id=data.destination_account_id or asset.source_account_id,
-                transaction_type="INCOME"
+                transaction_type="INVESTMENT_INFLOW"
             )
         except Exception as e:
             print(f"Warning: Failed to create cashflow transaction for sell_units: {e}")

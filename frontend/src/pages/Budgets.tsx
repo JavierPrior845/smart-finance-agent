@@ -11,7 +11,7 @@ export default function Budgets() {
   
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<{ id: string; name: string; color?: string } | null>(null);
+  const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<{ id: string; name: string; color?: string; type?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   
   const currentMonth = new Date().getMonth() + 1;
@@ -127,17 +127,18 @@ export default function Budgets() {
             ) : (
               budgets.map(budget => {
                 const isIncome = budget.category_type === 'INCOME';
+                const isInvestment = budget.category_type === 'INVESTMENT';
                 const netSpent = Math.max(0, budget.spent);
                 const percent = Math.min((netSpent / budget.monthly_limit) * 100, 100);
-                const isOver = !isIncome && budget.spent > budget.monthly_limit;
-                const isGoalReached = isIncome && budget.spent >= budget.monthly_limit;
+                const isOver = !isIncome && !isInvestment && budget.spent > budget.monthly_limit;
+                const isGoalReached = (isIncome || isInvestment) && budget.spent >= budget.monthly_limit;
                 const color = budget.category_color || 'var(--color-primary)';
                 
                 return (
                   <div 
                     key={budget.id} 
                     className="budget-item" 
-                    onClick={() => setSelectedCategoryForModal({ id: budget.category_id, name: budget.category_name, color: budget.category_color })}
+                    onClick={() => setSelectedCategoryForModal({ id: budget.category_id, name: budget.category_name, color: budget.category_color, type: budget.category_type })}
                     style={{ 
                       padding: '14px', 
                       borderRadius: '12px', 
@@ -165,16 +166,20 @@ export default function Budgets() {
                           fontSize: '0.75rem', 
                           padding: '2px 8px', 
                           borderRadius: '12px', 
-                          backgroundColor: isIncome ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          color: isIncome ? '#10b981' : '#60a5fa',
+                          backgroundColor: isInvestment 
+                            ? 'rgba(168, 85, 247, 0.15)' 
+                            : isIncome 
+                            ? 'rgba(16, 185, 129, 0.15)' 
+                            : 'rgba(59, 130, 246, 0.15)',
+                          color: isInvestment ? '#c084fc' : isIncome ? '#10b981' : '#60a5fa',
                           fontWeight: 500
                         }}>
-                          {isIncome ? 'Meta de Ingreso' : 'Presupuesto Gasto'}
+                          {isInvestment ? 'Meta de Inversión' : isIncome ? 'Meta de Ingreso' : 'Presupuesto Gasto'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                          {isIncome ? 'Ganado (Neto)' : 'Gastado (Neto)'}: <strong>€{budget.spent.toFixed(2)}</strong> / €{budget.monthly_limit.toFixed(2)}
+                          {isInvestment ? 'Invertido (Neto)' : isIncome ? 'Ganado (Neto)' : 'Gastado (Neto)'}: <strong>€{budget.spent.toFixed(2)}</strong> / €{budget.monthly_limit.toFixed(2)}
                         </span>
                         <Eye size={16} style={{ opacity: 0.6, color: 'var(--text-secondary)' }} />
                       </div>
@@ -187,7 +192,9 @@ export default function Budgets() {
                           width: `${percent}%`, 
                           height: '100%',
                           transition: 'width 0.3s ease',
-                          background: isIncome 
+                          background: isInvestment
+                            ? (isGoalReached ? '#10b981' : '#a855f7')
+                            : isIncome 
                             ? (isGoalReached ? '#10b981' : '#3b82f6')
                             : (isOver ? 'var(--color-danger)' : color) 
                         }}
@@ -196,7 +203,7 @@ export default function Budgets() {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {percent.toFixed(0)}% {isIncome ? 'cumplido' : 'consumido'}
+                        {percent.toFixed(0)}% {(isIncome || isInvestment) ? 'cumplido' : 'consumido'}
                       </span>
 
                       {isGoalReached && (
@@ -205,7 +212,7 @@ export default function Budgets() {
                       {isOver && (
                         <span className="budget-alert" style={{ color: 'var(--color-danger)', fontWeight: 600, fontSize: '0.85rem' }}>¡Límite excedido!</span>
                       )}
-                      {!isIncome && budget.spent < 0 && (
+                      {!isIncome && !isInvestment && budget.spent < 0 && (
                         <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 500 }}>
                           Abonos superan gastos (+€{Math.abs(budget.spent).toFixed(2)})
                         </span>
@@ -235,7 +242,7 @@ export default function Budgets() {
                   cursor: 'pointer',
                   transition: 'background 0.2s ease'
                 }}
-                onClick={() => setSelectedCategoryForModal({ id: cat.id, name: cat.name, color: cat.color })}
+                onClick={() => setSelectedCategoryForModal({ id: cat.id, name: cat.name, color: cat.color, type: cat.type })}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                 title="Haz clic para ver las transacciones de esta categoría"
@@ -247,6 +254,8 @@ export default function Budgets() {
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       {cat.type === 'INCOME'
                         ? (cat.default_budget_limit ? `Objetivo Base: €${cat.default_budget_limit}` : 'Sin objetivo genérico')
+                        : cat.type === 'INVESTMENT'
+                        ? (cat.default_budget_limit ? `Meta Base: €${cat.default_budget_limit}` : 'Sin meta genérica')
                         : (cat.default_budget_limit ? `Límite Base: €${cat.default_budget_limit}` : 'Sin límite genérico')
                       }
                     </span>
@@ -299,7 +308,9 @@ export default function Budgets() {
                 >
                   <option value="">Selecciona una categoría...</option>
                   {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name} ({cat.type === 'INCOME' ? 'Meta Ingreso' : cat.type === 'INVESTMENT' ? 'Meta Inversión' : 'Límite Gasto'})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -363,17 +374,24 @@ export default function Budgets() {
                 >
                   <option value="EXPENSE">Gasto (Límite)</option>
                   <option value="INCOME">Ingreso (Objetivo/Meta)</option>
+                  <option value="INVESTMENT">Inversión (Meta de Aporte)</option>
                 </select>
               </div>
 
               <div className="input-group">
-                <label>{categoryData.type === 'INCOME' ? 'Objetivo Genérico al Mes (€) - Opcional' : 'Límite Genérico al Mes (€) - Opcional'}</label>
+                <label>
+                  {categoryData.type === 'INCOME' 
+                    ? 'Objetivo Genérico al Mes (€) - Opcional' 
+                    : categoryData.type === 'INVESTMENT'
+                    ? 'Meta de Inversión al Mes (€) - Opcional'
+                    : 'Límite Genérico al Mes (€) - Opcional'}
+                </label>
                 <input 
                   type="number" 
                   step="0.01"
                   value={categoryData.default_budget_limit} 
                   onChange={e => setCategoryData({...categoryData, default_budget_limit: e.target.value})}
-                  placeholder={categoryData.type === 'INCOME' ? "Ej. 1000" : "Ej. 50"}
+                  placeholder={categoryData.type === 'EXPENSE' ? "Ej. 50" : "Ej. 500"}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
               </div>
@@ -403,6 +421,7 @@ export default function Budgets() {
           categoryId={selectedCategoryForModal.id}
           categoryName={selectedCategoryForModal.name}
           categoryColor={selectedCategoryForModal.color}
+          categoryType={selectedCategoryForModal.type}
           month={currentMonth}
           year={currentYear}
           onClose={() => setSelectedCategoryForModal(null)}

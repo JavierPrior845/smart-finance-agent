@@ -6,7 +6,7 @@ interface Transaction {
   id: string;
   amount: number;
   description: string;
-  type: 'EXPENSE' | 'INCOME' | 'TRANSFER';
+  type: 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'BALANCE_ADJUSTMENT' | 'INVESTMENT_OUTFLOW' | 'INVESTMENT_INFLOW';
   transaction_date: string;
   source: string;
   currency: string;
@@ -17,6 +17,7 @@ interface CategoryTransactionsModalProps {
   categoryId: string;
   categoryName: string;
   categoryColor?: string;
+  categoryType?: string;
   month: number;
   year: number;
   onClose: () => void;
@@ -31,6 +32,7 @@ export default function CategoryTransactionsModal({
   categoryId,
   categoryName,
   categoryColor = 'var(--color-primary)',
+  categoryType,
   month,
   year,
   onClose
@@ -65,13 +67,14 @@ export default function CategoryTransactionsModal({
 
   // Totales calculados
   const totalExpenses = transactions
-    .filter(t => t.type === 'EXPENSE')
+    .filter(t => t.type === 'EXPENSE' || t.type === 'INVESTMENT_OUTFLOW')
     .reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
   const totalIncomes = transactions
-    .filter(t => t.type === 'INCOME')
+    .filter(t => t.type === 'INCOME' || t.type === 'INVESTMENT_INFLOW')
     .reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
+  const isInvestmentCat = categoryType === 'INVESTMENT';
   const netBalance = totalExpenses - totalIncomes;
 
   return (
@@ -170,14 +173,18 @@ export default function CategoryTransactionsModal({
             borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
           }}>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Gastos Totales</span>
-              <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-danger)' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
+                {isInvestmentCat ? 'Aportes / Compras' : 'Gastos Totales'}
+              </span>
+              <span style={{ fontSize: '1.05rem', fontWeight: 600, color: isInvestmentCat ? '#a855f7' : 'var(--color-danger)' }}>
                 €{totalExpenses.toFixed(2)}
               </span>
             </div>
 
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Abonos / Reembolsos</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
+                {isInvestmentCat ? 'Ventas / Reembolsos' : 'Abonos / Reembolsos'}
+              </span>
               <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-success)' }}>
                 €{totalIncomes.toFixed(2)}
               </span>
@@ -188,7 +195,7 @@ export default function CategoryTransactionsModal({
               <span style={{ 
                 fontSize: '1.05rem', 
                 fontWeight: 600, 
-                color: netBalance >= 0 ? '#60a5fa' : 'var(--color-success)' 
+                color: isInvestmentCat ? '#a855f7' : netBalance >= 0 ? '#60a5fa' : 'var(--color-success)' 
               }}>
                 €{netBalance.toFixed(2)}
               </span>
@@ -216,8 +223,9 @@ export default function CategoryTransactionsModal({
             </div>
           ) : (
             transactions.map((tx) => {
-              const isExpense = tx.type === 'EXPENSE';
-              const isIncome = tx.type === 'INCOME';
+              const isOutflow = tx.type === 'EXPENSE' || tx.type === 'INVESTMENT_OUTFLOW';
+              const isInflow = tx.type === 'INCOME' || tx.type === 'INVESTMENT_INFLOW';
+              const isInvestmentTx = tx.type === 'INVESTMENT_OUTFLOW' || tx.type === 'INVESTMENT_INFLOW';
               const formattedDate = new Date(tx.transaction_date).toLocaleDateString('es-ES', {
                 day: '2-digit',
                 month: 'short',
@@ -226,7 +234,7 @@ export default function CategoryTransactionsModal({
 
               return (
                 <div 
-                  key={tx.id}
+                  key={tx.id} 
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -246,20 +254,24 @@ export default function CategoryTransactionsModal({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: isExpense
+                      background: isInvestmentTx
+                        ? 'rgba(168, 85, 247, 0.15)'
+                        : isOutflow
                         ? 'rgba(255, 51, 102, 0.12)'
-                        : isIncome
+                        : isInflow
                         ? 'rgba(0, 255, 127, 0.12)'
                         : 'rgba(59, 130, 246, 0.12)',
-                      color: isExpense
+                      color: isInvestmentTx
+                        ? '#c084fc'
+                        : isOutflow
                         ? 'var(--color-danger)'
-                        : isIncome
+                        : isInflow
                         ? 'var(--color-success)'
                         : '#60a5fa'
                     }}>
-                      {isExpense && <ArrowUpRight size={18} />}
-                      {isIncome && <ArrowDownLeft size={18} />}
-                      {!isExpense && !isIncome && <ArrowRightLeft size={18} />}
+                      {isOutflow && <ArrowUpRight size={18} />}
+                      {isInflow && <ArrowDownLeft size={18} />}
+                      {!isOutflow && !isInflow && <ArrowRightLeft size={18} />}
                     </div>
 
                     <div>
@@ -275,13 +287,15 @@ export default function CategoryTransactionsModal({
                   <div style={{
                     fontWeight: 600,
                     fontSize: '1rem',
-                    color: isExpense
+                    color: isInvestmentTx
+                      ? '#c084fc'
+                      : isOutflow
                       ? 'var(--color-danger)'
-                      : isIncome
+                      : isInflow
                       ? 'var(--color-success)'
                       : 'var(--text-primary)'
                   }}>
-                    {isExpense ? '-' : isIncome ? '+' : ''}€{Math.abs(tx.amount).toFixed(2)}
+                    {isOutflow ? '-' : isInflow ? '+' : ''}€{Math.abs(tx.amount).toFixed(2)}
                   </div>
                 </div>
               );
