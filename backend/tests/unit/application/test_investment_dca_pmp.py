@@ -145,3 +145,75 @@ async def test_investment_full_sale_closes_position():
     assert updated_asset.invested_amount == 0.0
     assert updated_asset.status == "CLOSED"
     assert updated_asset.realized_pnl == 200.0
+
+@pytest.mark.asyncio
+async def test_investment_creation_with_explicit_category():
+    class CaptureCreateTransactionUseCase:
+        def __init__(self):
+            self.last_kwargs = None
+
+        async def execute(self, **kwargs):
+            self.last_kwargs = kwargs
+
+    repo = MockInvestmentRepository()
+    mock_tx = CaptureCreateTransactionUseCase()
+    use_case = ManageInvestmentUseCase(repo, mock_tx)
+    custom_cat_id = uuid.uuid4()
+
+    data = InvestmentCreate(
+        name="Vanguard S&P 500",
+        ticker="VUSA",
+        asset_type="ETF",
+        broker="MyInvestor",
+        invested_amount=500.0,
+        category_id=custom_cat_id,
+    )
+    await use_case.create_investment(data)
+
+    assert mock_tx.last_kwargs is not None
+    assert mock_tx.last_kwargs["category_id"] == custom_cat_id
+    assert mock_tx.last_kwargs["amount"] == 500.0
+
+
+@pytest.mark.asyncio
+async def test_investment_autocreates_investment_category():
+    class MockCategoryRepo:
+        def __init__(self):
+            self.categories = []
+
+        async def get_all(self):
+            return list(self.categories)
+
+        async def save(self, cat):
+            self.categories.append(cat)
+            return cat
+
+    class CaptureCreateTransactionUseCase:
+        def __init__(self):
+            self.last_kwargs = None
+
+        async def execute(self, **kwargs):
+            self.last_kwargs = kwargs
+
+    repo = MockInvestmentRepository()
+    mock_cat_repo = MockCategoryRepo()
+    mock_tx = CaptureCreateTransactionUseCase()
+    use_case = ManageInvestmentUseCase(repo, mock_tx, category_repo=mock_cat_repo)
+
+    # Invertir sin category_id y sin ninguna categoría existente en la BD
+    data = InvestmentCreate(
+        name="Amundi MSCI World",
+        ticker="CW8",
+        asset_type="ETF",
+        broker="MyInvestor",
+        invested_amount=300.0,
+    )
+    await use_case.create_investment(data)
+
+    # Verifica que se creó automáticamente la categoría Inversiones de tipo INVESTMENT
+    assert len(mock_cat_repo.categories) == 1
+    created_cat = mock_cat_repo.categories[0]
+    assert created_cat.name == "Inversiones"
+    assert created_cat.type == "INVESTMENT"
+    assert mock_tx.last_kwargs["category_id"] == created_cat.id
+    assert mock_tx.last_kwargs["transaction_type"] == "INVESTMENT_OUTFLOW"

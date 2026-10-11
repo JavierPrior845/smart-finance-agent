@@ -12,6 +12,7 @@ from src.application.use_cases.manage_account import ManageAccountUseCase
 from src.application.use_cases.manage_category import ManageCategoryUseCase
 from src.application.use_cases.manage_budget import ManageBudgetUseCase
 from src.application.use_cases.create_transaction import CreateTransactionUseCase
+from src.application.use_cases.manage_transaction import ManageTransactionUseCase
 from src.application.use_cases.sync_investments import SyncInvestmentsUseCase
 from src.application.use_cases.manage_investment import ManageInvestmentUseCase
 
@@ -28,8 +29,25 @@ def get_transaction_repo(session: AsyncSession = Depends(get_db_session)) -> SQL
 def get_investment_repo(session: AsyncSession = Depends(get_db_session)) -> SQLAlchemyInvestmentRepository:
     return SQLAlchemyInvestmentRepository(session)
 
-def get_manage_account_use_case(repo: SQLAlchemyAccountRepository = Depends(get_account_repo)) -> ManageAccountUseCase:
-    return ManageAccountUseCase(repo)
+def get_create_transaction_use_case(
+    transaction_repo: SQLAlchemyTransactionRepository = Depends(get_transaction_repo),
+    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
+    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
+) -> CreateTransactionUseCase:
+    return CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
+
+def get_manage_transaction_use_case(
+    transaction_repo: SQLAlchemyTransactionRepository = Depends(get_transaction_repo),
+    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
+    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
+) -> ManageTransactionUseCase:
+    return ManageTransactionUseCase(transaction_repo, account_repo, category_repo)
+
+def get_manage_account_use_case(
+    repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
+    create_tx_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case)
+) -> ManageAccountUseCase:
+    return ManageAccountUseCase(repo, create_tx_use_case)
 
 def get_manage_category_use_case(repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)) -> ManageCategoryUseCase:
     return ManageCategoryUseCase(repo)
@@ -41,23 +59,23 @@ def get_manage_budget_use_case(
     category_repo = SQLAlchemyCategoryRepository(session)
     return ManageBudgetUseCase(budget_repo, category_repo)
 
-def get_create_transaction_use_case(
-    transaction_repo: SQLAlchemyTransactionRepository = Depends(get_transaction_repo),
-    account_repo: SQLAlchemyAccountRepository = Depends(get_account_repo),
-    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo)
-) -> CreateTransactionUseCase:
-    return CreateTransactionUseCase(transaction_repo, account_repo, category_repo)
-
 def get_sync_investments_use_case(
     investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo)
 ) -> SyncInvestmentsUseCase:
     return SyncInvestmentsUseCase(investment_repo)
 
+from src.infrastructure.adapters.db.repositories.setting_repository import SettingRepository
+
+def get_setting_repo(session: AsyncSession = Depends(get_db_session)) -> SettingRepository:
+    return SettingRepository(session)
+
 def get_manage_investment_use_case(
     investment_repo: SQLAlchemyInvestmentRepository = Depends(get_investment_repo),
-    create_transaction_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case)
+    create_transaction_use_case: CreateTransactionUseCase = Depends(get_create_transaction_use_case),
+    category_repo: SQLAlchemyCategoryRepository = Depends(get_category_repo),
+    setting_repo: SettingRepository = Depends(get_setting_repo),
 ) -> ManageInvestmentUseCase:
-    return ManageInvestmentUseCase(investment_repo, create_transaction_use_case)
+    return ManageInvestmentUseCase(investment_repo, create_transaction_use_case, category_repo, setting_repo)
 
 from src.infrastructure.adapters.db.repositories.merchant_rule_repository import SQLAlchemyMerchantRuleRepository
 from src.application.use_cases.manage_merchant_rules import ManageMerchantRulesUseCase

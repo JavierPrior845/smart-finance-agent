@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 class CategoryCreate(BaseModel):
     name: str
-    type: Literal['EXPENSE', 'INCOME'] = 'EXPENSE'
+    type: Literal['EXPENSE', 'INCOME', 'INVESTMENT'] = 'EXPENSE'
     parent_id: Optional[UUID] = None
     icon: Optional[str] = None
     color: Optional[str] = None
@@ -14,7 +14,7 @@ class CategoryCreate(BaseModel):
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
-    type: Optional[Literal['EXPENSE', 'INCOME']] = None
+    type: Optional[Literal['EXPENSE', 'INCOME', 'INVESTMENT']] = None
     parent_id: Optional[UUID] = None
     icon: Optional[str] = None
     color: Optional[str] = None

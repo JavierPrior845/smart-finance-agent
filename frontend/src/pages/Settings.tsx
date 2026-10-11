@@ -42,7 +42,7 @@ export default function Settings() {
         const [settingsRes, rulesRes, categoriesRes] = await Promise.all([
           api.get('/settings/target_savings_rate'),
           api.get('/settings/merchant-rules'),
-          api.get('/categories')
+          api.get('/categories'),
         ]);
         setTargetSavingsRate(settingsRes.data.value);
         setRules(rulesRes.data);
@@ -79,8 +79,10 @@ export default function Settings() {
         value: targetSavingsRate,
         description: "Tasa de ahorro objetivo (%)"
       });
+      toast.success("Tasa de ahorro objetivo guardada");
     } catch (err) {
       console.error("Error al guardar la tasa de ahorro", err);
+      toast.error("Error al guardar la tasa de ahorro");
     } finally {
       setSaving(false);
     }

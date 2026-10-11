@@ -18,6 +18,8 @@ async def get_setting(key: str, db: AsyncSession = Depends(get_db_session)):
     repo = SettingRepository(db)
     setting = await repo.get_setting(key)
     if not setting:
+        if key == "default_investment_category_id":
+            return await repo.update_setting(key, "", "Categoría por defecto para compras de inversión")
         raise HTTPException(status_code=404, detail="Setting not found")
     return setting
 

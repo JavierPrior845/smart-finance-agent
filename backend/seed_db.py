@@ -54,6 +54,11 @@ async def seed():
                 value="EUR",
                 description="Moneda principal del sistema",
             ),
+            AppSettingORM(
+                key="default_investment_category_id",
+                value="",
+                description="Categoría por defecto para compras de inversión",
+            ),
         ]
         session.add_all(settings)
         await session.flush()
@@ -120,6 +125,8 @@ async def seed():
             ("Proyectos Freelance", "#10b981", 1200.0, "INCOME", "briefcase"), # Meta de ingreso Fase 4.5
             ("Inversiones & Dividendos", "#3b82f6", None, "INCOME", "trending-up"),
             ("Bizum & Reembolsos", "#14b8a6", None, "INCOME", "repeat"),
+            # Inversiones (INVESTMENT)
+            ("Inversiones", "#10b981", None, "INVESTMENT", "trending-up"),
         ]
 
         categories = {}
@@ -137,6 +144,13 @@ async def seed():
             categories[name] = cat
 
         await session.flush()
+        # Actualizar default_investment_category_id con el id de la categoría Inversiones
+        if "Inversiones" in categories:
+            setting_inv = next((s for s in settings if s.key == "default_investment_category_id"), None)
+            if setting_inv:
+                setting_inv.value = str(categories["Inversiones"].id)
+                session.add(setting_inv)
+                await session.flush()
         print(f"Categorías creadas ({len(categories)} categorías).")
 
         # ==========================================

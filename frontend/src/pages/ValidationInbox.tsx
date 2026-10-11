@@ -179,7 +179,7 @@ export default function ValidationInbox() {
                           style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                         />
                       </div>
-                      <div className="input-group" style={{ width: '110px' }}>
+                      <div className="input-group" style={{ width: '130px' }}>
                         <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>Tipo</label>
                         <select 
                           value={txn.editingType} 
@@ -188,6 +188,8 @@ export default function ValidationInbox() {
                         >
                           <option value="EXPENSE">Gasto</option>
                           <option value="INCOME">Ingreso</option>
+                          <option value="INVESTMENT_OUTFLOW">Inversión (Aporte)</option>
+                          <option value="INVESTMENT_INFLOW">Inversión (Retiro)</option>
                         </select>
                       </div>
                     </div>
