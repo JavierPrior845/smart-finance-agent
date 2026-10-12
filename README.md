@@ -98,6 +98,8 @@ For security, the bot only responds to whitelisted user IDs:
 
 ## 🚀 Environment Setup & Deployment
 
+> 📖 Para el protocolo seguro de actualización y despliegue en entornos de producción con datos reales y Docker, consulta la **[Guía de Despliegue en Producción](docs/deployment.md)**.
+
 ### Prerequisites
 - Docker & Docker Compose installed.
 - Ollama installed locally (`ollama pull llama3.2` or `ollama pull qwen2.5-coder:1.5b`).
